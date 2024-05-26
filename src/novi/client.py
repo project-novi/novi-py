@@ -5,6 +5,8 @@ from .errors import handle_error
 from .identity import Identity
 from .session import Session
 
+from typing import Optional
+
 
 class Client:
     def __init__(self, channel: grpc.Channel):
@@ -18,7 +20,7 @@ class Client:
         return Identity(token)
 
     @handle_error
-    def session(self, lock: bool = True) -> Session:
+    def session(self, lock: Optional[bool] = True) -> Session:
         token = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
         ).token
