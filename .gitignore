@@ -9,7 +9,7 @@ wheels/
 # venv
 .venv
 
-/.src/novi/novi_pb2*
+/src/novi/novi_pb2*
 
 /requirements.lock
 /requirements-dev.lock
