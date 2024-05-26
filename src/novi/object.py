@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from . import novi_pb2
 from .misc import uuid_from_pb, dt_from_timestamp
+from .proto import novi_pb2
 
 from typing import Dict, Iterator, Optional, TYPE_CHECKING
 

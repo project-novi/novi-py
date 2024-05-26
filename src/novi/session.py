@@ -9,12 +9,12 @@ from queue import Queue
 from threading import Thread
 from uuid import UUID
 
-from . import novi_pb2
 from .errors import NoviError, handle_error
 from .identity import Identity
 from .misc import uuid_to_pb, dt_to_timestamp
 from .model import EventKind, HookPoint, QueryOrder
 from .object import BaseObject, Object, EditableObject, Tags
+from .proto import novi_pb2
 
 from typing import (
     Callable,

@@ -3,7 +3,7 @@ import sys
 
 from functools import wraps
 
-from . import novi_pb2
+from .proto import novi_pb2
 
 from typing import Dict
 

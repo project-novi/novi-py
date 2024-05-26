@@ -1,6 +1,6 @@
 import grpc
 
-from . import novi_pb2, novi_pb2_grpc
+from .proto import novi_pb2, novi_pb2_grpc
 from .errors import handle_error
 from .identity import Identity
 from .session import Session
