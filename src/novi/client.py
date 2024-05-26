@@ -11,6 +11,13 @@ class Client:
         self._stub = novi_pb2_grpc.NoviStub(channel)
 
     @handle_error
+    def login(self, username: str, password: str) -> Identity:
+        token = self._stub.Login(
+            novi_pb2.LoginRequest(username=username, password=password)
+        ).identity
+        return Identity(token)
+
+    @handle_error
     def session(self, lock: bool = True) -> Session:
         token = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),

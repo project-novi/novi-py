@@ -138,6 +138,17 @@ class Session:
             self.identity = old_identity
 
     @handle_error
+    def login_as(self, user: Union[UUID, str]) -> Identity:
+        if isinstance(user, str):
+            user = UUID(user)
+
+        token = self._send(
+            self._client._stub.LoginAs,
+            novi_pb2.LoginAsRequest(user=uuid_to_pb(user)),
+        ).identity
+        return Identity(token)
+
+    @handle_error
     def create_object(self, tags: Tags) -> Object:
         return Object.from_pb(
             self._send(
