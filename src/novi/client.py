@@ -20,9 +20,12 @@ class Client:
         return Identity(token)
 
     @handle_error
-    def session(self, lock: Optional[bool] = True) -> Session:
+    def session(
+        self, lock: Optional[bool] = True, identity: Optional[Identity] = None
+    ) -> Session:
         token = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
+            metadata=(('identity', identity.token),) if identity else (),
         ).token
         return Session(self, token)
 
