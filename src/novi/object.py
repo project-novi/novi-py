@@ -88,7 +88,10 @@ class BaseObject:
         return cls(
             id=uuid_from_pb(pb.id),
             tags={
-                tag: TagValue(value=tv.value, updated=tv.updated)
+                tag: TagValue(
+                    value=tv.value if tv.HasField('value') else None,
+                    updated=dt_from_timestamp(tv.updated),
+                )
                 for tag, tv in pb.tags.items()
             },
             creator=(
