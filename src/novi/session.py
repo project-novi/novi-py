@@ -17,6 +17,7 @@ from .object import BaseObject, Object, EditableObject, Tags
 from .proto import novi_pb2
 
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterator,
@@ -448,8 +449,27 @@ class Session:
         Thread(target=worker).start()
 
     @handle_error
-    def call_function(self, name: str, arguments: Dict[str, bytes]) -> bytes:
-        return self._send(
+    def call_function(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        encode_json: bool = True,
+        decode_json: bool = True,
+    ) -> Any:
+        if encode_json:
+            new_args = {}
+            for key, value in arguments.items():
+                if isinstance(value, str):
+                    new_args[key] = value.encode()
+                elif not isinstance(value, bytes):
+                    new_args[key] = json.dumps(value).encode()
+
+            arguments = new_args
+
+        result = self._send(
             self._client._stub.CallFunction,
             novi_pb2.CallFunctionRequest(name=name, arguments=arguments),
         ).result
+        if decode_json:
+            return json.loads(result.decode())
+        return result
