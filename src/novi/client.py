@@ -21,7 +21,7 @@ class Client:
 
     @handle_error
     def session(
-        self, identity: Optional[Identity] = None, lock: Optional[bool] = True
+        self, identity: Optional[Identity] = None, lock: Optional[bool] = None
     ) -> Session:
         token = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),

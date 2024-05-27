@@ -43,7 +43,7 @@ def get_identity() -> Identity:
 def subs(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(lock=False) as session:
+        with _state.client.session() as session:
             session.subscribe(filter, cb, **kwargs)
 
         return cb
@@ -54,7 +54,7 @@ def subs(filter: str, **kwargs):
 def fix(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(lock=False) as session:
+        with _state.client.session() as session:
             session.subscribe(filter, cb, checkpoint=_min_utc, **kwargs)
 
         return cb
@@ -65,7 +65,7 @@ def fix(filter: str, **kwargs):
 def hook(point: HookPoint, filter: str = '*'):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(lock=False) as session:
+        with _state.client.session() as session:
             session.register_hook(point, filter, cb)
 
         return cb
@@ -76,7 +76,7 @@ def hook(point: HookPoint, filter: str = '*'):
 def function(name: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(lock=False) as session:
+        with _state.client.session() as session:
             session.register_function(name, cb, **kwargs)
 
         return cb
