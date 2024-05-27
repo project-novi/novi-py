@@ -130,11 +130,13 @@ class BaseObject:
 
         return result
 
-    def dump_json(self, fmt: ObjectFormat = ObjectFormat.BRIEF) -> str:
+    def dump_json(
+        self, fmt: ObjectFormat = ObjectFormat.BRIEF, **kwargs
+    ) -> str:
         import json
 
         # TODO: optimize
-        return json.dumps(self.dump_python(fmt), ensure_ascii=False)
+        return json.dumps(self.dump_python(fmt), ensure_ascii=False, **kwargs)
 
     def assign(self, other: 'BaseObject'):
         self.tags = other.tags
