@@ -19,3 +19,7 @@ def uuid_from_pb(pb: novi_pb2.UUID) -> UUID:
 
 def uuid_to_pb(uuid: UUID) -> novi_pb2.UUID:
     return novi_pb2.UUID(hi=uuid.int >> 64, lo=uuid.int & (1 << 64) - 1)
+
+
+def rfc3339(dt: datetime) -> str:
+    return dt.isoformat()[:-6] + 'Z'

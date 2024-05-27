@@ -2,13 +2,46 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from .misc import uuid_from_pb, dt_from_timestamp
+from .errors import InvalidArgumentError
+from .misc import uuid_from_pb, dt_from_timestamp, rfc3339
 from .proto import novi_pb2
 
-from typing import Dict, Iterator, Optional, TYPE_CHECKING
+from typing import (
+    ClassVar,
+    Dict,
+    Iterator,
+    Optional,
+    Set,
+    TYPE_CHECKING,
+)
 
 if TYPE_CHECKING:
     from .session import Session
+
+
+class ObjectFormat:
+    FULL: ClassVar['ObjectFormat']
+    BRIEF: ClassVar['ObjectFormat']
+
+    fields: Set[str]
+    tags: Optional[bool]
+
+    def __init__(self, fmt: str):
+        self.fields = set()
+        self.tags = None
+        for field in fmt.split(','):
+            if field in ('id', 'creator', 'updated', 'created'):
+                self.fields.add(field)
+            elif field == 'tags':
+                self.tags = True
+            elif field == 'tags:brief':
+                self.tags = False
+            else:
+                raise InvalidArgumentError(f'unknown format field: {field}')
+
+
+ObjectFormat.FULL = ObjectFormat('id,creator,updated,created,tags')
+ObjectFormat.BRIEF = ObjectFormat('id,creator,updated,created,tags:brief')
 
 
 @dataclass
@@ -64,6 +97,41 @@ class BaseObject:
             created=dt_from_timestamp(pb.created),
             updated=dt_from_timestamp(pb.updated),
         )
+
+    def dump_python(self, fmt: ObjectFormat = ObjectFormat.BRIEF) -> str:
+        result = {}
+        for field in fmt.fields:
+            result[field] = getattr(self, field)
+            if field in ('id', 'creator'):
+                result[field] = (
+                    None if result[field] is None else str(result[field])
+                )
+            elif field in ('updated', 'created'):
+                result[field] = rfc3339(result[field])
+
+        if fmt.tags is not None:
+            if fmt.tags:
+                # full
+                result['tags'] = {
+                    tag: {
+                        'value': tv.value,
+                        'updated': rfc3339(tv.updated),
+                    }
+                    for tag, tv in self.tags.items()
+                }
+            else:
+                # brief
+                result['tags'] = {
+                    tag: tv.value for tag, tv in self.tags.items()
+                }
+
+        return result
+
+    def dump_json(self, fmt: ObjectFormat = ObjectFormat.BRIEF) -> str:
+        import json
+
+        # TODO: optimize
+        return json.dumps(self.dump_python(fmt), ensure_ascii=False)
 
     def assign(self, other: 'BaseObject'):
         self.tags = other.tags
