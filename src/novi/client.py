@@ -21,13 +21,15 @@ class Client:
 
     @handle_error
     def session(
-        self, lock: Optional[bool] = True, identity: Optional[Identity] = None
+        self, identity: Optional[Identity] = None, lock: Optional[bool] = True
     ) -> Session:
         token = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
             metadata=(('identity', identity.token),) if identity else (),
         ).token
-        return Session(self, token)
+        session = Session(self, token)
+        session.identity = identity
+        return session
 
     @handle_error
     def use_master_key(self, master_key: str) -> Identity:
