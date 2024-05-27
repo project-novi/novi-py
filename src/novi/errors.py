@@ -17,6 +17,7 @@ def _error_dict():
         'IOError': IOError,
         'PermissionDenied': PermissionDeniedError,
         'IdentityExpired': IdentityExpiredError,
+        'FileNotFound': FileNotFoundError,
         'FunctionNotFound': FunctionNotFoundError,
         'ObjectNotFound': ObjectNotFoundError,
         'InvalidArgument': InvalidArgumentError,
@@ -109,6 +110,10 @@ class IdentityExpiredError(NoviError):
 
 
 class PermissionDeniedError(NoviError):
+    pass
+
+
+class FileNotFoundError(NoviError):
     pass
 
 
