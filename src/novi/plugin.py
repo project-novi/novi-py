@@ -1,4 +1,3 @@
-import argparse
 import grpc
 
 from datetime import datetime, timezone
@@ -18,22 +17,17 @@ class _State:
         self.initialized = False
 
     def ensure_init(self):
-        if self.initialized:
-            return
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--server', required=True)
-        parser.add_argument('--identity', required=True)
-        args = parser.parse_args()
-
-        channel = grpc.insecure_channel(args.server)
-        self.client = Client(channel)
-        self.identity = Identity(args.identity)
-
-        self.initialized = True
+        if not self.initialized:
+            raise RuntimeError('plugin API not initialized')
 
 
 _state = _State()
+
+
+def initialize(server: str, identity: str):
+    _state.client = Client(grpc.insecure_channel(server))
+    _state.identity = Identity(identity)
+    _state.initialized = True
 
 
 def get_client() -> Client:

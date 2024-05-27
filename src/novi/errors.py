@@ -35,10 +35,11 @@ def _error_kind(kind):
 def handle_error(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except grpc.RpcError as e:
-            raise NoviError.from_grpc(e) from None
+        # try:
+        #     return func(*args, **kwargs)
+        # except grpc.RpcError as e:
+        #     raise NoviError.from_grpc(e) from None
+        return func(*args, **kwargs)
 
     return wrapper
 
