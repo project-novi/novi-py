@@ -3,8 +3,12 @@ from uuid import UUID
 
 from typing import Union
 
-# Can be mutated by user
-storage_path = Path('storage')
+_storage_path = Path('storage')
+
+
+def set_storage_path(path: Path) -> None:
+    global _storage_path
+    _storage_path = path
 
 
 def object_path(id: Union[UUID, str], variant: str = 'original') -> Path:
