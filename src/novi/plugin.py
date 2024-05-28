@@ -41,7 +41,11 @@ def initialize(
     plugin_dir: Path,
     config_template: Optional[Path],
 ):
-    _state.client = Client(grpc.insecure_channel(server))
+    _state.client = Client(
+        grpc.insecure_channel(
+            server, options=(('grpc.default_authority', 'localhost'),)
+        )
+    )
     _state.identity = Identity(identity)
 
     _state.plugin_dir = plugin_dir
