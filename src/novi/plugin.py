@@ -1,4 +1,5 @@
 import grpc
+import inspect
 import shelve
 import yaml
 
@@ -157,6 +158,8 @@ def wrap_session(
                     kwargs['session'] = session
 
                 return func(*args, **kwargs)
+
+        wrapper.__signature__ = inspect.signature(func)
 
         return wrapper
 
