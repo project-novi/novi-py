@@ -48,8 +48,8 @@ def _tags_to_pb(ts: Tags) -> novi_pb2.Tags:
 def _wrap_function(
     func,
     wrap: bool = True,
-    decode_json: bool = True,
     decode_model: bool = True,
+    encode_model: bool = True,
     check_type: bool = True,
     pass_session: bool = True,
     filter_arguments: bool = True,
@@ -57,13 +57,7 @@ def _wrap_function(
     if not wrap:
         return func
 
-    def wrapper(arguments: Dict[str, bytes], session: Optional['Session']):
-        if decode_json:
-            arguments = {
-                key: json.loads(value.decode())
-                for key, value in arguments.items()
-            }
-
+    def wrapper(arguments: Dict[str, Any], session: Optional['Session']):
         if decode_model:
             for arg, ty in func.__annotations__.items():
                 if arg not in arguments:
@@ -96,7 +90,12 @@ def _wrap_function(
                     new_args[arg] = arguments[arg]
             arguments = new_args
 
-        return func(**arguments)
+        resp = func(**arguments)
+
+        if encode_model:
+            resp = TypeAdapter(type(resp)).dump_python(resp)
+
+        return resp
 
     return wrapper
 
@@ -475,13 +474,13 @@ class Session:
                             else None
                         )
                         resp = function(
-                            arguments=reply.arguments,
+                            arguments=json.loads(reply.arguments),
                             session=session,
                         )
                         resp = novi_pb2.RegFunctionRequest(
                             result=novi_pb2.RegFunctionRequest.CallResult(
                                 call_id=reply.call_id,
-                                response=b'',
+                                response=json.dumps(resp),
                             )
                         )
                     except Exception:
@@ -505,23 +504,11 @@ class Session:
         self,
         name: str,
         arguments: Dict[str, Any],
-        encode_json: bool = True,
-        decode_json: bool = True,
     ) -> Any:
-        if encode_json:
-            new_args = {}
-            for key, value in arguments.items():
-                if isinstance(value, str):
-                    new_args[key] = value.encode()
-                elif not isinstance(value, bytes):
-                    new_args[key] = json.dumps(value).encode()
-
-            arguments = new_args
-
         result = self._send(
             self._client._stub.CallFunction,
-            novi_pb2.CallFunctionRequest(name=name, arguments=arguments),
+            novi_pb2.CallFunctionRequest(
+                name=name, arguments=json.dumps(arguments)
+            ),
         ).result
-        if decode_json:
-            return json.loads(result.decode())
-        return result
+        return json.loads(result)

@@ -361,9 +361,9 @@ class RegFunctionRequest(_message.Message):
         RESPONSE_FIELD_NUMBER: _ClassVar[int]
         ERROR_FIELD_NUMBER: _ClassVar[int]
         call_id: int
-        response: bytes
+        response: str
         error: Error
-        def __init__(self, call_id: _Optional[int] = ..., response: _Optional[bytes] = ..., error: _Optional[_Union[Error, _Mapping]] = ...) -> None: ...
+        def __init__(self, call_id: _Optional[int] = ..., response: _Optional[str] = ..., error: _Optional[_Union[Error, _Mapping]] = ...) -> None: ...
     INITIATE_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
     initiate: RegFunctionRequest.Initiate
@@ -372,38 +372,24 @@ class RegFunctionRequest(_message.Message):
 
 class RegFunctionReply(_message.Message):
     __slots__ = ("call_id", "arguments", "session")
-    class ArgumentsEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: bytes
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     SESSION_FIELD_NUMBER: _ClassVar[int]
     call_id: int
-    arguments: _containers.ScalarMap[str, bytes]
+    arguments: str
     session: str
-    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[_Mapping[str, bytes]] = ..., session: _Optional[str] = ...) -> None: ...
+    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[str] = ..., session: _Optional[str] = ...) -> None: ...
 
 class CallFunctionRequest(_message.Message):
     __slots__ = ("name", "arguments")
-    class ArgumentsEntry(_message.Message):
-        __slots__ = ("key", "value")
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: bytes
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     name: str
-    arguments: _containers.ScalarMap[str, bytes]
-    def __init__(self, name: _Optional[str] = ..., arguments: _Optional[_Mapping[str, bytes]] = ...) -> None: ...
+    arguments: str
+    def __init__(self, name: _Optional[str] = ..., arguments: _Optional[str] = ...) -> None: ...
 
 class CallFunctionReply(_message.Message):
     __slots__ = ("result",)
     RESULT_FIELD_NUMBER: _ClassVar[int]
-    result: bytes
-    def __init__(self, result: _Optional[bytes] = ...) -> None: ...
+    result: str
+    def __init__(self, result: _Optional[str] = ...) -> None: ...
