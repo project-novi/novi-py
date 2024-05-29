@@ -1,6 +1,5 @@
 import grpc
 import shelve
-import shutil
 import yaml
 
 from datetime import datetime, timezone
@@ -24,7 +23,8 @@ class _State:
     identity: Identity
     session: Session
 
-    plugin_dir: Optional[Path] = None
+    plugin_dir: Path
+    config_template: Optional[Path]
 
     def __init__(self):
         self.initialized = False
@@ -52,13 +52,9 @@ def initialize(
     _state.session = _state.client.session(identity=_state.identity)
 
     _state.plugin_dir = plugin_dir
+    _state.config_template = config_template
 
     _state.initialized = True
-
-    if config_template is not None:
-        config_file = get_config_file()
-        if not config_file.exists():
-            shutil.copy(config_template, config_file)
 
 
 def join():
@@ -100,9 +96,27 @@ def get_config_file() -> Path:
     return get_plugin_dir() / 'config.yaml'
 
 
+def get_config_template_file() -> Path:
+    _state.ensure_init()
+    return _state.config_template
+
+
 def load_config(model: Type[T]) -> T:
-    with get_config_file().open() as file:
-        return model.model_validate(yaml.safe_load(file))
+    config = {}
+
+    try:
+        with get_config_template_file().open() as f:
+            config.update(yaml.safe_load(f))
+    except FileNotFoundError:
+        pass
+
+    try:
+        with get_config_file().open() as f:
+            config.update(yaml.safe_load(f))
+    except FileNotFoundError:
+        pass
+
+    return model.model_validate(config)
 
 
 def get_client() -> Client:
