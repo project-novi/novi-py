@@ -262,7 +262,7 @@ class BaseObject:
         else:
             raise ValueError(f'unknown content type: {type(data)}')
 
-        self.set('@file:{variant}')
+        self.set(f'@file:{variant}')
 
     def upload_from_url(self, url: str, variant: str = 'original', **kwargs):
         from urllib.request import urlretrieve
