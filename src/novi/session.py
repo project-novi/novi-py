@@ -297,6 +297,16 @@ class Session:
         )
         return [Object.from_pb(obj, self) for obj in objects.objects]
 
+    def query_one(
+        self,
+        filter: str,
+        **kwargs,
+    ) -> Optional[Object]:
+        objects = self.query(filter, limit=1, **kwargs)
+        if objects:
+            return objects[0]
+        return None
+
     def _spawn_worker(self, target, **kwargs):
         self._ref_cnt += 1
 
