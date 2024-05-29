@@ -8,7 +8,7 @@ from functools import wraps
 from pathlib import Path
 from pydantic import BaseModel
 
-from novi import Client, Identity, HookPoint, Session
+from novi import BaseObject, Client, Identity, HookPoint, Session
 
 from typing import Optional, Type, TypeVar
 
@@ -120,12 +120,29 @@ def new_session(**kwargs) -> Session:
     return _state.client.session(identity=_state.identity, **kwargs)
 
 
-def wrap_session(**ns_kwargs):
+def wrap_session(
+    wrap_object: bool = True,
+    append_session: bool = True,
+    lock: Optional[bool] = True,
+):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with new_session(**ns_kwargs) as session:
-                return func(*args, **kwargs, session=session)
+            with new_session(lock=lock) as session:
+                if wrap_object:
+
+                    def wrap(obj):
+                        if isinstance(obj, BaseObject):
+                            return obj.with_session(session)
+                        return obj
+
+                    args = [wrap(arg) for arg in args]
+                    kwargs = {k: wrap(v) for k, v in kwargs.items()}
+
+                if append_session:
+                    kwargs['session'] = session
+
+                return func(*args, **kwargs)
 
         return wrapper
 
@@ -135,8 +152,7 @@ def wrap_session(**ns_kwargs):
 def subs(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(identity=_state.identity) as session:
-            session.subscribe(filter, cb, **kwargs)
+        _state.session.subscribe(filter, cb, **kwargs)
 
         return cb
 
