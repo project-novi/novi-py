@@ -4,6 +4,7 @@ import shutil
 import yaml
 
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -112,6 +113,23 @@ def get_client() -> Client:
 def get_identity() -> Identity:
     _state.ensure_init()
     return _state.identity
+
+
+def new_session(**kwargs) -> Session:
+    _state.ensure_init()
+    return _state.client.session(identity=_state.identity, **kwargs)
+
+
+def wrap_session(**ns_kwargs):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with new_session(**ns_kwargs) as session:
+                return func(*args, **kwargs, session=session)
+
+        return wrapper
+
+    return decorator
 
 
 def subs(filter: str, **kwargs):
