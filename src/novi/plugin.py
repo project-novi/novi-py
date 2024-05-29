@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from pydantic import BaseModel
 
-from novi import Client, Identity, HookPoint
+from novi import Client, Identity, HookPoint, Session
 
 from typing import Optional, Type, TypeVar
 
@@ -21,6 +21,7 @@ class _State:
 
     client: Client
     identity: Identity
+    session: Session
 
     plugin_dir: Optional[Path] = None
 
@@ -47,6 +48,7 @@ def initialize(
         )
     )
     _state.identity = Identity(identity)
+    _state.session = _state.client.session(identity=_state.identity)
 
     _state.plugin_dir = plugin_dir
 
@@ -56,6 +58,11 @@ def initialize(
         config_file = get_config_file()
         if not config_file.exists():
             shutil.copy(config_template, config_file)
+
+
+def join():
+    _state.ensure_init()
+    _state.session.join()
 
 
 def get_plugin_dir() -> Path:
@@ -121,8 +128,7 @@ def subs(filter: str, **kwargs):
 def fix(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(identity=_state.identity) as session:
-            session.subscribe(filter, cb, checkpoint=_min_utc, **kwargs)
+        _state.session.subscribe(filter, cb, checkpoint=_min_utc, **kwargs)
 
         return cb
 
@@ -132,8 +138,7 @@ def fix(filter: str, **kwargs):
 def hook(point: HookPoint, filter: str = '*'):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(identity=_state.identity) as session:
-            session.register_hook(point, filter, cb)
+        _state.session.register_hook(point, filter, cb)
 
         return cb
 
@@ -143,8 +148,7 @@ def hook(point: HookPoint, filter: str = '*'):
 def function(name: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        with _state.client.session(identity=_state.identity) as session:
-            session.register_function(name, cb, **kwargs)
+        _state.session.register_function(name, cb, **kwargs)
 
         return cb
 

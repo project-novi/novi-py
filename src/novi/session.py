@@ -21,6 +21,7 @@ from typing import (
     Callable,
     Dict,
     Iterator,
+    List,
     Optional,
     Set,
     Tuple,
@@ -104,12 +105,18 @@ class Session:
     token: str
     identity: Optional[Identity]
 
+    _entered = False
+    _ref_cnt = 0
+    _workers: List[Thread]
+
     def __init__(
         self, client: 'Client', token: str, identity: Optional[Identity] = None
     ):
         self._client = client
         self.token = token
         self.identity = identity
+
+        self._workers = []
 
     def _send(self, fn, request):
         metadata = [('session', self.token)]
@@ -118,10 +125,28 @@ class Session:
         return fn(request, metadata=metadata)
 
     def __enter__(self):
+        if self._entered:
+            raise RuntimeError('session already entered')
+        self._entered = True
+        self._ref_cnt += 1
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.end(exc_type is None)
+        if not self._entered:
+            raise RuntimeError('session not entered')
+
+        self._entered = False
+        if exc_type is not None:
+            self._ref_cnt -= 1
+            self.end(False)
+        else:
+            self._entered = False
+            self._dec_ref()
+
+    def _dec_ref(self):
+        self._ref_cnt -= 1
+        if self._ref_cnt == 0:
+            self.end(True)
 
     def end(self, commit=True):
         self._send(
@@ -272,6 +297,23 @@ class Session:
         )
         return [Object.from_pb(obj, self) for obj in objects.objects]
 
+    def _spawn_worker(self, target, **kwargs):
+        self._ref_cnt += 1
+
+        def wrapper():
+            try:
+                target()
+            finally:
+                self._dec_ref()
+
+        worker = Thread(target=wrapper, **kwargs)
+        self._workers.append(worker)
+        worker.start()
+
+    def join(self):
+        for worker in self._workers:
+            worker.join()
+
     def subscribe_stream(
         self,
         filter: str,
@@ -322,7 +364,7 @@ class Session:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise
 
-        Thread(target=worker).start()
+        self._spawn_worker(worker)
 
     @handle_error
     def register_hook(self, point: HookPoint, filter: str, callback: Callable):
@@ -387,7 +429,7 @@ class Session:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
-        Thread(target=worker).start()
+        self._spawn_worker(worker)
 
     @handle_error
     def register_function(
@@ -446,7 +488,7 @@ class Session:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
-        Thread(target=worker).start()
+        self._spawn_worker(worker)
 
     @handle_error
     def call_function(
