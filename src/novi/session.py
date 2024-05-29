@@ -93,7 +93,7 @@ def _wrap_function(
         resp = func(**arguments)
 
         if encode_model:
-            resp = TypeAdapter(type(resp)).dump_python(resp)
+            resp = TypeAdapter(type(resp)).dump_python(resp, mode='json')
 
         return resp
 
