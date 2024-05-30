@@ -196,7 +196,11 @@ class BaseObject:
             key = f'@file:{variant}'
             if not self.has(key):
                 raise FileNotFoundError(
-                    self.id, variant, 'missing in object meta'
+                    'missing in object meta',
+                    {
+                        'id': str(self.id),
+                        'variant': variant,
+                    },
                 )
 
             if redirect := self[f'@file:{variant}']:
@@ -209,7 +213,11 @@ class BaseObject:
                     )
                 else:
                     raise FileNotFoundError(
-                        self.id, variant, 'redirect not supported'
+                        'redirect not supported',
+                        {
+                            'id': str(self.id),
+                            'variant': variant,
+                        },
                     )
 
         return object_path(rid, rvar)
