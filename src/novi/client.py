@@ -32,6 +32,14 @@ class Client:
         return session
 
     @handle_error
+    def temporary_session(
+        self, identity: Optional[Identity] = None
+    ) -> Session:
+        session = Session(self, None)
+        session.identity = identity
+        return session
+
+    @handle_error
     def use_master_key(self, master_key: str) -> Identity:
         token = self._stub.UseMasterKey(
             novi_pb2.UseMasterKeyRequest(key=master_key)

@@ -101,7 +101,7 @@ def _wrap_function(
 
 
 class Session:
-    token: str
+    token: Optional[str]
     identity: Optional[Identity]
 
     _entered = False
@@ -109,7 +109,10 @@ class Session:
     _workers: List[Thread]
 
     def __init__(
-        self, client: 'Client', token: str, identity: Optional[Identity] = None
+        self,
+        client: 'Client',
+        token: Optional[str],
+        identity: Optional[Identity] = None,
     ):
         self._client = client
         self.token = token
@@ -118,7 +121,9 @@ class Session:
         self._workers = []
 
     def _send(self, fn, request):
-        metadata = [('session', self.token)]
+        metadata = []
+        if self.token:
+            metadata.append(('session', self.token))
         if self.identity:
             metadata.append(('identity', self.identity.token))
         return fn(request, metadata=metadata)
