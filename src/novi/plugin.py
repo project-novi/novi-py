@@ -50,7 +50,7 @@ def initialize(
         )
     )
     _state.identity = Identity(identity)
-    _state.session = _state.client.session(identity=_state.identity)
+    _state.session = _state.client.temporary_session(identity=_state.identity)
 
     _state.plugin_dir = plugin_dir
     _state.config_template = config_template
