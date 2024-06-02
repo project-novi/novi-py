@@ -54,7 +54,7 @@ class NoviStub(object):
                 request_serializer=novi_dot_proto_dot_novi__pb2.UseMasterKeyRequest.SerializeToString,
                 response_deserializer=novi_dot_proto_dot_novi__pb2.UseMasterKeyReply.FromString,
                 _registered_method=True)
-        self.NewSession = channel.unary_unary(
+        self.NewSession = channel.unary_stream(
                 '/novi.Novi/NewSession',
                 request_serializer=novi_dot_proto_dot_novi__pb2.NewSessionRequest.SerializeToString,
                 response_deserializer=novi_dot_proto_dot_novi__pb2.NewSessionReply.FromString,
@@ -238,7 +238,7 @@ def add_NoviServicer_to_server(servicer, server):
                     request_deserializer=novi_dot_proto_dot_novi__pb2.UseMasterKeyRequest.FromString,
                     response_serializer=novi_dot_proto_dot_novi__pb2.UseMasterKeyReply.SerializeToString,
             ),
-            'NewSession': grpc.unary_unary_rpc_method_handler(
+            'NewSession': grpc.unary_stream_rpc_method_handler(
                     servicer.NewSession,
                     request_deserializer=novi_dot_proto_dot_novi__pb2.NewSessionRequest.FromString,
                     response_serializer=novi_dot_proto_dot_novi__pb2.NewSessionReply.SerializeToString,
@@ -406,7 +406,7 @@ class Novi(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(
+        return grpc.experimental.unary_stream(
             request,
             target,
             '/novi.Novi/NewSession',

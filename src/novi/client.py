@@ -11,6 +11,7 @@ from typing import Optional
 class Client:
     def __init__(self, channel: grpc.Channel):
         self._stub = novi_pb2_grpc.NoviStub(channel)
+        self._active_sessions = []
 
     @handle_error
     def login(self, username: str, password: str) -> Identity:
@@ -23,10 +24,12 @@ class Client:
     def session(
         self, identity: Optional[Identity] = None, lock: Optional[bool] = None
     ) -> Session:
-        token = self._stub.NewSession(
+        gen = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
             metadata=(('identity', identity.token),) if identity else (),
-        ).token
+        )
+        token = next(gen).token
+        self._active_sessions.append(gen)
         session = Session(self, token)
         session.identity = identity
         return session
