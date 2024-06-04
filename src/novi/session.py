@@ -463,7 +463,7 @@ class Session:
                         )
                         resp = callback(
                             arguments=json.loads(reply.arguments),
-                            original_reuslt=original_result,
+                            original_result=original_result,
                             session=session,
                         )
                         if resp is None:
