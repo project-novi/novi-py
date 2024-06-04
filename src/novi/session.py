@@ -413,7 +413,9 @@ class Session:
                             )
                         )
                     except Exception:
-                        error = NoviError.current()
+                        error = NoviError.current(
+                            'error in core hook callback'
+                        )
                         resp = novi_pb2.RegCoreHookRequest(
                             result=novi_pb2.RegCoreHookRequest.CallResult(
                                 call_id=reply.call_id,
@@ -471,7 +473,7 @@ class Session:
                             )
                         )
                     except Exception:
-                        error = NoviError.current()
+                        error = NoviError.current('error in hook callback')
                         resp = novi_pb2.RegHookRequest(
                             result=novi_pb2.RegHookRequest.CallResult(
                                 call_id=reply.call_id,
@@ -530,7 +532,7 @@ class Session:
                             )
                         )
                     except Exception:
-                        error = NoviError.current()
+                        error = NoviError.current('error in function call')
                         resp = novi_pb2.RegFunctionRequest(
                             result=novi_pb2.RegFunctionRequest.CallResult(
                                 call_id=reply.call_id,

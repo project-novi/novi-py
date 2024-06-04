@@ -1,13 +1,16 @@
 import grpc
 import sys
 
+from structlog import get_logger
 from functools import wraps
 
 from .proto import novi_pb2
 
-from typing import Dict
+from typing import Dict, Optional
 
 _METADATA_KEYS = {'permission', 'id', 'tag', 'type'}
+
+lg = get_logger()
 
 
 def _error_dict():
@@ -87,7 +90,9 @@ class NoviError(Exception):
         )
 
     @staticmethod
-    def current() -> 'NoviError':
+    def current(message: Optional[str] = None) -> 'NoviError':
+        if message is not None:
+            lg.exception(message)
         exc_info = sys.exc_info()
         if isinstance(exc_info[1], NoviError):
             return exc_info[1]
