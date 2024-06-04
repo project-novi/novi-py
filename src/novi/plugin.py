@@ -186,10 +186,10 @@ def fix(filter: str, **kwargs):
     return decorator
 
 
-def hook(point: HookPoint, filter: str = '*'):
+def core_hook(point: HookPoint, filter: str = '*'):
     def decorator(cb):
         _state.ensure_init()
-        _state.session.register_hook(point, filter, cb)
+        _state.session.register_core_hook(point, filter, cb)
 
         return cb
 

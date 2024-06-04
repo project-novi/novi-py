@@ -381,7 +381,9 @@ class Session:
         self._spawn_worker(worker)
 
     @handle_error
-    def register_hook(self, point: HookPoint, filter: str, callback: Callable):
+    def register_core_hook(
+        self, point: HookPoint, filter: str, callback: Callable
+    ):
         q = Queue()
 
         def request_stream():
@@ -389,16 +391,16 @@ class Session:
                 yield q.get()
 
         q.put(
-            novi_pb2.RegHookRequest(
-                initiate=novi_pb2.RegHookRequest.Initiate(
+            novi_pb2.RegCoreHookRequest(
+                initiate=novi_pb2.RegCoreHookRequest.Initiate(
                     point=point.value,
                     filter=filter,
                 )
             )
         )
 
-        reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
-            self._client._stub.RegisterHook, request_stream()
+        reply_stream: Iterator[novi_pb2.RegCoreHookReply] = self._send(
+            self._client._stub.RegisterCoreHook, request_stream()
         )
 
         def worker():
@@ -421,8 +423,8 @@ class Session:
                             old_object=old_object,
                             session=session,
                         )
-                        resp = novi_pb2.RegHookRequest(
-                            result=novi_pb2.RegHookRequest.CallResult(
+                        resp = novi_pb2.RegCoreHookRequest(
+                            result=novi_pb2.RegCoreHookRequest.CallResult(
                                 call_id=reply.call_id,
                                 response=novi_pb2.ObjectEdits(
                                     deletes=[], update={}, clear=False
@@ -431,8 +433,8 @@ class Session:
                         )
                     except Exception:
                         error = NoviError.current()
-                        resp = novi_pb2.RegHookRequest(
-                            result=novi_pb2.RegHookRequest.CallResult(
+                        resp = novi_pb2.RegCoreHookRequest(
+                            result=novi_pb2.RegCoreHookRequest.CallResult(
                                 call_id=reply.call_id,
                                 error=error.to_pb(),
                             )

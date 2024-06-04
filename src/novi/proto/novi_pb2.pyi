@@ -296,31 +296,31 @@ class ObjectEdits(_message.Message):
     clear: bool
     def __init__(self, deletes: _Optional[_Iterable[str]] = ..., update: _Optional[_Union[Tags, _Mapping]] = ..., clear: bool = ...) -> None: ...
 
-class RegHookRequest(_message.Message):
+class RegCoreHookRequest(_message.Message):
     __slots__ = ("initiate", "result")
     class HookPoint(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        BEFORE_CREATE: _ClassVar[RegHookRequest.HookPoint]
-        AFTER_CREATE: _ClassVar[RegHookRequest.HookPoint]
-        BEFORE_UPDATE: _ClassVar[RegHookRequest.HookPoint]
-        AFTER_UPDATE: _ClassVar[RegHookRequest.HookPoint]
-        BEFORE_DELETE: _ClassVar[RegHookRequest.HookPoint]
-        AFTER_DELETE: _ClassVar[RegHookRequest.HookPoint]
-        BEFORE_VIEW: _ClassVar[RegHookRequest.HookPoint]
-    BEFORE_CREATE: RegHookRequest.HookPoint
-    AFTER_CREATE: RegHookRequest.HookPoint
-    BEFORE_UPDATE: RegHookRequest.HookPoint
-    AFTER_UPDATE: RegHookRequest.HookPoint
-    BEFORE_DELETE: RegHookRequest.HookPoint
-    AFTER_DELETE: RegHookRequest.HookPoint
-    BEFORE_VIEW: RegHookRequest.HookPoint
+        BEFORE_CREATE: _ClassVar[RegCoreHookRequest.HookPoint]
+        AFTER_CREATE: _ClassVar[RegCoreHookRequest.HookPoint]
+        BEFORE_UPDATE: _ClassVar[RegCoreHookRequest.HookPoint]
+        AFTER_UPDATE: _ClassVar[RegCoreHookRequest.HookPoint]
+        BEFORE_DELETE: _ClassVar[RegCoreHookRequest.HookPoint]
+        AFTER_DELETE: _ClassVar[RegCoreHookRequest.HookPoint]
+        BEFORE_VIEW: _ClassVar[RegCoreHookRequest.HookPoint]
+    BEFORE_CREATE: RegCoreHookRequest.HookPoint
+    AFTER_CREATE: RegCoreHookRequest.HookPoint
+    BEFORE_UPDATE: RegCoreHookRequest.HookPoint
+    AFTER_UPDATE: RegCoreHookRequest.HookPoint
+    BEFORE_DELETE: RegCoreHookRequest.HookPoint
+    AFTER_DELETE: RegCoreHookRequest.HookPoint
+    BEFORE_VIEW: RegCoreHookRequest.HookPoint
     class Initiate(_message.Message):
         __slots__ = ("point", "filter")
         POINT_FIELD_NUMBER: _ClassVar[int]
         FILTER_FIELD_NUMBER: _ClassVar[int]
-        point: RegHookRequest.HookPoint
+        point: RegCoreHookRequest.HookPoint
         filter: str
-        def __init__(self, point: _Optional[_Union[RegHookRequest.HookPoint, str]] = ..., filter: _Optional[str] = ...) -> None: ...
+        def __init__(self, point: _Optional[_Union[RegCoreHookRequest.HookPoint, str]] = ..., filter: _Optional[str] = ...) -> None: ...
     class CallResult(_message.Message):
         __slots__ = ("call_id", "response", "error")
         CALL_ID_FIELD_NUMBER: _ClassVar[int]
@@ -332,11 +332,11 @@ class RegHookRequest(_message.Message):
         def __init__(self, call_id: _Optional[int] = ..., response: _Optional[_Union[ObjectEdits, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ...) -> None: ...
     INITIATE_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
-    initiate: RegHookRequest.Initiate
-    result: RegHookRequest.CallResult
-    def __init__(self, initiate: _Optional[_Union[RegHookRequest.Initiate, _Mapping]] = ..., result: _Optional[_Union[RegHookRequest.CallResult, _Mapping]] = ...) -> None: ...
+    initiate: RegCoreHookRequest.Initiate
+    result: RegCoreHookRequest.CallResult
+    def __init__(self, initiate: _Optional[_Union[RegCoreHookRequest.Initiate, _Mapping]] = ..., result: _Optional[_Union[RegCoreHookRequest.CallResult, _Mapping]] = ...) -> None: ...
 
-class RegHookReply(_message.Message):
+class RegCoreHookReply(_message.Message):
     __slots__ = ("call_id", "object", "old_object", "session")
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     OBJECT_FIELD_NUMBER: _ClassVar[int]

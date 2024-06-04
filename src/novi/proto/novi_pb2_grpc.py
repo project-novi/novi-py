@@ -104,10 +104,10 @@ class NoviStub(object):
                 request_serializer=novi_dot_proto_dot_novi__pb2.SubscribeRequest.SerializeToString,
                 response_deserializer=novi_dot_proto_dot_novi__pb2.SubscribeReply.FromString,
                 _registered_method=True)
-        self.RegisterHook = channel.stream_stream(
-                '/novi.Novi/RegisterHook',
-                request_serializer=novi_dot_proto_dot_novi__pb2.RegHookRequest.SerializeToString,
-                response_deserializer=novi_dot_proto_dot_novi__pb2.RegHookReply.FromString,
+        self.RegisterCoreHook = channel.stream_stream(
+                '/novi.Novi/RegisterCoreHook',
+                request_serializer=novi_dot_proto_dot_novi__pb2.RegCoreHookRequest.SerializeToString,
+                response_deserializer=novi_dot_proto_dot_novi__pb2.RegCoreHookReply.FromString,
                 _registered_method=True)
         self.RegisterFunction = channel.stream_stream(
                 '/novi.Novi/RegisterFunction',
@@ -202,7 +202,7 @@ class NoviServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RegisterHook(self, request_iterator, context):
+    def RegisterCoreHook(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -288,10 +288,10 @@ def add_NoviServicer_to_server(servicer, server):
                     request_deserializer=novi_dot_proto_dot_novi__pb2.SubscribeRequest.FromString,
                     response_serializer=novi_dot_proto_dot_novi__pb2.SubscribeReply.SerializeToString,
             ),
-            'RegisterHook': grpc.stream_stream_rpc_method_handler(
-                    servicer.RegisterHook,
-                    request_deserializer=novi_dot_proto_dot_novi__pb2.RegHookRequest.FromString,
-                    response_serializer=novi_dot_proto_dot_novi__pb2.RegHookReply.SerializeToString,
+            'RegisterCoreHook': grpc.stream_stream_rpc_method_handler(
+                    servicer.RegisterCoreHook,
+                    request_deserializer=novi_dot_proto_dot_novi__pb2.RegCoreHookRequest.FromString,
+                    response_serializer=novi_dot_proto_dot_novi__pb2.RegCoreHookReply.SerializeToString,
             ),
             'RegisterFunction': grpc.stream_stream_rpc_method_handler(
                     servicer.RegisterFunction,
@@ -666,7 +666,7 @@ class Novi(object):
             _registered_method=True)
 
     @staticmethod
-    def RegisterHook(request_iterator,
+    def RegisterCoreHook(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -679,9 +679,9 @@ class Novi(object):
         return grpc.experimental.stream_stream(
             request_iterator,
             target,
-            '/novi.Novi/RegisterHook',
-            novi_dot_proto_dot_novi__pb2.RegHookRequest.SerializeToString,
-            novi_dot_proto_dot_novi__pb2.RegHookReply.FromString,
+            '/novi.Novi/RegisterCoreHook',
+            novi_dot_proto_dot_novi__pb2.RegCoreHookRequest.SerializeToString,
+            novi_dot_proto_dot_novi__pb2.RegCoreHookReply.FromString,
             options,
             channel_credentials,
             insecure,
