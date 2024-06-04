@@ -284,7 +284,7 @@ class Object(BaseObject):
 
     @classmethod
     def from_pb(cls, pb: novi_pb2.Object, session: 'Session'):
-        obj = super(Object, cls).from_pb(pb)
+        obj = super().from_pb(pb)
         obj._session = session
         return obj
 

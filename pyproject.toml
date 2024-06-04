@@ -30,3 +30,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/novi"]
+
+[tool.ruff.lint]
+extend-select = ["UP"]
+exclude = ["novi_pb2*"]
