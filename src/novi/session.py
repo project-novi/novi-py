@@ -516,11 +516,7 @@ class Session:
             try:
                 for reply in reply_stream:
                     try:
-                        session = (
-                            Session(self._client, reply.session)
-                            if reply.HasField('session')
-                            else None
-                        )
+                        session = Session(self._client, reply.session)
                         resp = function(
                             arguments=json.loads(reply.arguments),
                             session=session,
