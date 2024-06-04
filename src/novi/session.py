@@ -12,7 +12,7 @@ from uuid import UUID
 from .errors import NoviError, handle_error
 from .identity import Identity
 from .misc import uuid_to_pb, dt_to_timestamp
-from .model import EventKind, HookPoint, QueryOrder
+from .model import EventKind, HookAction, HookPoint, QueryOrder
 from .object import BaseObject, Object, EditableObject, Tags
 from .proto import novi_pb2
 
@@ -466,10 +466,22 @@ class Session:
                             original_reuslt=original_result,
                             session=session,
                         )
+                        if resp is None:
+                            resp = HookAction.none()
+                        assert isinstance(resp, HookAction)
+
+                        action_pb = novi_pb2.HookAction(
+                            update_args=resp.update_args,
+                            result_or_args=(
+                                None
+                                if resp.result_or_args is None
+                                else json.dumps(resp.result_or_args)
+                            ),
+                        )
                         resp = novi_pb2.RegHookRequest(
                             result=novi_pb2.RegHookRequest.CallResult(
                                 call_id=reply.call_id,
-                                response=json.dumps(resp),
+                                response=action_pb,
                             )
                         )
                     except Exception:

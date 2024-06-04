@@ -1,7 +1,7 @@
 from .client import Client
 from .errors import NoviError
 from .identity import Identity
-from .model import EventKind, HookPoint, QueryOrder
+from .model import EventKind, HookAction, HookPoint, QueryOrder
 from .object import (
     BaseObject,
     Object,
@@ -18,6 +18,7 @@ __all__ = [
     'Client',
     'EditableObject',
     'EventKind',
+    'HookAction',
     'HookPoint',
     'Identity',
     'NoviError',

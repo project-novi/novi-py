@@ -1,4 +1,7 @@
+from dataclasses import dataclass
 from enum import Enum
+
+from typing import Any, Dict
 
 
 class QueryOrder(Enum):
@@ -22,3 +25,21 @@ class EventKind(Enum):
     CREATE = 0
     UPDATE = 1
     DELETE = 2
+
+
+@dataclass
+class HookAction:
+    update_args: bool
+    result_or_args: Any
+
+    @staticmethod
+    def none():
+        return HookAction(update_args=False, result_or_args=None)
+
+    @staticmethod
+    def update_result(result: Any):
+        return HookAction(update_args=False, result_or_args=result)
+
+    @staticmethod
+    def update_arguments(args: Dict[str, Any]):
+        return HookAction(update_args=True, result_or_args=args)
