@@ -105,7 +105,6 @@ class Session:
     identity: Optional[Identity]
 
     _entered = False
-    _ref_cnt = 0
     _workers: List[Thread]
 
     def __init__(
@@ -132,27 +131,16 @@ class Session:
         if self._entered:
             raise RuntimeError('session already entered')
         self._entered = True
-        self._ref_cnt += 1
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._entered:
             raise RuntimeError('session not entered')
 
-        self._entered = False
-        if exc_type is not None:
-            self._ref_cnt -= 1
-            self.end(False)
-        else:
-            self._entered = False
-            self._dec_ref()
-
-    def _dec_ref(self):
-        self._ref_cnt -= 1
-        if self._ref_cnt == 0:
-            self.end(True)
+        self.end(exc_type is None)
 
     def end(self, commit=True):
+        self._entered = False
         self._send(
             self._client._stub.EndSession,
             novi_pb2.EndSessionRequest(commit=commit),
@@ -312,15 +300,7 @@ class Session:
         return None
 
     def _spawn_worker(self, target, **kwargs):
-        self._ref_cnt += 1
-
-        def wrapper():
-            try:
-                target()
-            finally:
-                self._dec_ref()
-
-        worker = Thread(target=wrapper, **kwargs)
+        worker = Thread(target=target, **kwargs)
         self._workers.append(worker)
         worker.start()
 
@@ -410,12 +390,12 @@ class Session:
                         object = EditableObject.from_pb(reply.object)
                         old_object = (
                             EditableObject.from_pb(reply.old_object)
-                            if reply.old_object
+                            if reply.HasField('old_object')
                             else None
                         )
                         session = (
                             Session(self._client, reply.session)
-                            if reply.session
+                            if reply.HasField('session')
                             else None
                         )
                         resp = callback(
@@ -423,6 +403,7 @@ class Session:
                             old_object=old_object,
                             session=session,
                         )
+                        # TODO: ObjectEdits
                         resp = novi_pb2.RegCoreHookRequest(
                             result=novi_pb2.RegCoreHookRequest.CallResult(
                                 call_id=reply.call_id,
@@ -435,6 +416,64 @@ class Session:
                         error = NoviError.current()
                         resp = novi_pb2.RegCoreHookRequest(
                             result=novi_pb2.RegCoreHookRequest.CallResult(
+                                call_id=reply.call_id,
+                                error=error.to_pb(),
+                            )
+                        )
+
+                    q.put(resp)
+            except grpc.RpcError as e:
+                if e.code() != grpc.StatusCode.CANCELLED:
+                    raise NoviError.from_grpc(e) from None
+
+        self._spawn_worker(worker)
+
+    @handle_error
+    def register_hook(self, function: str, before: bool, callback: Callable):
+        q = Queue()
+
+        def request_stream():
+            while True:
+                yield q.get()
+
+        q.put(
+            novi_pb2.RegHookRequest(
+                initiate=novi_pb2.RegHookRequest.Initiate(
+                    function=function,
+                    before=before,
+                )
+            )
+        )
+
+        reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
+            self._client._stub.RegisterHook, request_stream()
+        )
+
+        def worker():
+            try:
+                for reply in reply_stream:
+                    try:
+                        session = Session(self._client, reply.session)
+                        original_result = (
+                            json.loads(reply.original_result)
+                            if reply.HasField('original_result')
+                            else None
+                        )
+                        resp = callback(
+                            arguments=json.loads(reply.arguments),
+                            original_reuslt=original_result,
+                            session=session,
+                        )
+                        resp = novi_pb2.RegHookRequest(
+                            result=novi_pb2.RegHookRequest.CallResult(
+                                call_id=reply.call_id,
+                                response=json.dumps(resp),
+                            )
+                        )
+                    except Exception:
+                        error = NoviError.current()
+                        resp = novi_pb2.RegHookRequest(
+                            result=novi_pb2.RegHookRequest.CallResult(
                                 call_id=reply.call_id,
                                 error=error.to_pb(),
                             )
@@ -477,7 +516,7 @@ class Session:
                     try:
                         session = (
                             Session(self._client, reply.session)
-                            if reply.session
+                            if reply.HasField('session')
                             else None
                         )
                         resp = function(
