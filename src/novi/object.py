@@ -229,7 +229,7 @@ class BaseObject:
         direct: bool = False,
         **kwargs,
     ):
-        """Opens the object as a async file-like object."""
+        """Opens the object as a file-like object."""
 
         return self.path(variant=variant, direct=direct).open(mode, **kwargs)
 
