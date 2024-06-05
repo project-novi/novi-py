@@ -51,13 +51,17 @@ class Client:
 
     @handle_error
     def check_permission(
-        self, permission: Union[str, Iterable[str]], bail: bool = True
+        self,
+        identity: Identity,
+        permission: Union[str, Iterable[str]],
+        bail: bool = True,
     ) -> bool:
         if isinstance(permission, str):
             permission = [permission]
         return self._stub.CheckPermission(
-            novi_pb2.CheckPermissionRequest(permissions=permission, bail=bail)
+            novi_pb2.CheckPermissionRequest(permissions=permission, bail=bail),
+            metadata=(('identity', identity.token),),
         ).ok
 
-    def has_permission(self, permission: str) -> bool:
-        return self.check_permission(permission, bail=False)
+    def has_permission(self, identity: Identity, permission: str) -> bool:
+        return self.check_permission(identity, permission, bail=False)

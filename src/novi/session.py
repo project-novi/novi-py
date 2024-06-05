@@ -113,7 +113,7 @@ class Session:
         token: Optional[str],
         identity: Optional[Identity] = None,
     ):
-        self._client = client
+        self.client = client
         self.token = token
         self.identity = identity
 
@@ -142,7 +142,7 @@ class Session:
     def end(self, commit=True):
         self._entered = False
         self._send(
-            self._client._stub.EndSession,
+            self.client._stub.EndSession,
             novi_pb2.EndSessionRequest(commit=commit),
         )
 
@@ -161,7 +161,7 @@ class Session:
             user = UUID(user)
 
         token = self._send(
-            self._client._stub.LoginAs,
+            self.client._stub.LoginAs,
             novi_pb2.LoginAsRequest(user=uuid_to_pb(user)),
         ).identity
         return Identity(token)
@@ -170,7 +170,7 @@ class Session:
     def create_object(self, tags: Tags) -> Object:
         return Object.from_pb(
             self._send(
-                self._client._stub.CreateObject,
+                self.client._stub.CreateObject,
                 novi_pb2.CreateObjectRequest(tags=_tags_to_pb(tags)),
             ).object,
             self,
@@ -183,7 +183,7 @@ class Session:
 
         return Object.from_pb(
             self._send(
-                self._client._stub.GetObject,
+                self.client._stub.GetObject,
                 novi_pb2.GetObjectRequest(id=uuid_to_pb(id)),
             ).object,
             self,
@@ -198,7 +198,7 @@ class Session:
 
         return Object.from_pb(
             self._send(
-                self._client._stub.UpdateObject,
+                self.client._stub.UpdateObject,
                 novi_pb2.UpdateObjectRequest(
                     id=uuid_to_pb(id), tags=_tags_to_pb(tags), force=force
                 ),
@@ -219,7 +219,7 @@ class Session:
 
         return Object.from_pb(
             self._send(
-                self._client._stub.ReplaceObject,
+                self.client._stub.ReplaceObject,
                 novi_pb2.ReplaceObjectRequest(
                     id=uuid_to_pb(id),
                     tags=_tags_to_pb(tags),
@@ -243,7 +243,7 @@ class Session:
 
         return Object.from_pb(
             self._send(
-                self._client._stub.DeleteObjectTags,
+                self.client._stub.DeleteObjectTags,
                 novi_pb2.DeleteObjectTagsRequest(id=uuid_to_pb(id), tags=tags),
             ).object,
             self,
@@ -255,7 +255,7 @@ class Session:
             id = UUID(id)
 
         self._send(
-            self._client._stub.DeleteObject,
+            self.client._stub.DeleteObject,
             novi_pb2.DeleteObjectRequest(id=uuid_to_pb(id)),
         )
 
@@ -275,7 +275,7 @@ class Session:
             return None if dt is None else dt_to_timestamp(dt)
 
         objects = self._send(
-            self._client._stub.Query,
+            self.client._stub.Query,
             novi_pb2.QueryRequest(
                 filter=filter,
                 checkpoint=to_timestamp(checkpoint),
@@ -319,7 +319,7 @@ class Session:
         },
     ) -> Iterator[Tuple[BaseObject, EventKind]]:
         it = self._send(
-            self._client._stub.Subscribe,
+            self.client._stub.Subscribe,
             novi_pb2.SubscribeRequest(
                 filter=filter,
                 checkpoint=(
@@ -380,7 +380,7 @@ class Session:
         )
 
         reply_stream: Iterator[novi_pb2.RegCoreHookReply] = self._send(
-            self._client._stub.RegisterCoreHook, request_stream()
+            self.client._stub.RegisterCoreHook, request_stream()
         )
 
         def worker():
@@ -394,7 +394,7 @@ class Session:
                             else None
                         )
                         session = (
-                            Session(self._client, reply.session)
+                            Session(self.client, reply.session)
                             if reply.HasField('session')
                             else None
                         )
@@ -452,14 +452,14 @@ class Session:
         )
 
         reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
-            self._client._stub.RegisterHook, request_stream()
+            self.client._stub.RegisterHook, request_stream()
         )
 
         def worker():
             try:
                 for reply in reply_stream:
                     try:
-                        session = Session(self._client, reply.session)
+                        session = Session(self.client, reply.session)
                         session.identity = Identity(reply.identity)
                         original_result = (
                             json.loads(reply.original_result)
@@ -526,14 +526,14 @@ class Session:
         )
 
         reply_stream: Iterator[novi_pb2.RegFunctionReply] = self._send(
-            self._client._stub.RegisterFunction, request_stream()
+            self.client._stub.RegisterFunction, request_stream()
         )
 
         def worker():
             try:
                 for reply in reply_stream:
                     try:
-                        session = Session(self._client, reply.session)
+                        session = Session(self.client, reply.session)
                         session.identity = Identity(reply.identity)
                         resp = function(
                             arguments=json.loads(reply.arguments),
@@ -568,7 +568,7 @@ class Session:
         arguments: Dict[str, Any],
     ) -> Any:
         result = self._send(
-            self._client._stub.CallFunction,
+            self.client._stub.CallFunction,
             novi_pb2.CallFunctionRequest(
                 name=name, arguments=json.dumps(arguments)
             ),
