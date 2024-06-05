@@ -5,7 +5,7 @@ from .errors import handle_error
 from .identity import Identity
 from .session import Session
 
-from typing import Optional
+from typing import Iterable, Optional, Union
 
 
 class Client:
@@ -48,3 +48,16 @@ class Client:
             novi_pb2.UseMasterKeyRequest(key=master_key)
         ).identity
         return Identity(token)
+
+    @handle_error
+    def check_permission(
+        self, permission: Union[str, Iterable[str]], bail: bool = True
+    ) -> bool:
+        if isinstance(permission, str):
+            permission = [permission]
+        return self._stub.CheckPermission(
+            novi_pb2.CheckPermissionRequest(permissions=permission, bail=bail)
+        ).ok
+
+    def has_permission(self, permission: str) -> bool:
+        return self.check_permission(permission, bail=False)

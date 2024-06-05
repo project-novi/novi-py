@@ -124,6 +124,11 @@ class NoviStub(object):
                 request_serializer=novi_dot_proto_dot_novi__pb2.CallFunctionRequest.SerializeToString,
                 response_deserializer=novi_dot_proto_dot_novi__pb2.CallFunctionReply.FromString,
                 _registered_method=True)
+        self.CheckPermission = channel.unary_unary(
+                '/novi.Novi/CheckPermission',
+                request_serializer=novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.SerializeToString,
+                response_deserializer=novi_dot_proto_dot_novi__pb2.CheckPermissionReply.FromString,
+                _registered_method=True)
 
 
 class NoviServicer(object):
@@ -231,6 +236,12 @@ class NoviServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckPermission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NoviServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -318,6 +329,11 @@ def add_NoviServicer_to_server(servicer, server):
                     servicer.CallFunction,
                     request_deserializer=novi_dot_proto_dot_novi__pb2.CallFunctionRequest.FromString,
                     response_serializer=novi_dot_proto_dot_novi__pb2.CallFunctionReply.SerializeToString,
+            ),
+            'CheckPermission': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckPermission,
+                    request_deserializer=novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.FromString,
+                    response_serializer=novi_dot_proto_dot_novi__pb2.CheckPermissionReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -779,6 +795,33 @@ class Novi(object):
             '/novi.Novi/CallFunction',
             novi_dot_proto_dot_novi__pb2.CallFunctionRequest.SerializeToString,
             novi_dot_proto_dot_novi__pb2.CallFunctionReply.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CheckPermission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/novi.Novi/CheckPermission',
+            novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.SerializeToString,
+            novi_dot_proto_dot_novi__pb2.CheckPermissionReply.FromString,
             options,
             channel_credentials,
             insecure,

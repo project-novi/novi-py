@@ -443,3 +443,17 @@ class CallFunctionReply(_message.Message):
     RESULT_FIELD_NUMBER: _ClassVar[int]
     result: str
     def __init__(self, result: _Optional[str] = ...) -> None: ...
+
+class CheckPermissionRequest(_message.Message):
+    __slots__ = ("permissions", "bail")
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    BAIL_FIELD_NUMBER: _ClassVar[int]
+    permissions: _containers.RepeatedScalarFieldContainer[str]
+    bail: bool
+    def __init__(self, permissions: _Optional[_Iterable[str]] = ..., bail: bool = ...) -> None: ...
+
+class CheckPermissionReply(_message.Message):
+    __slots__ = ("ok",)
+    OK_FIELD_NUMBER: _ClassVar[int]
+    ok: bool
+    def __init__(self, ok: bool = ...) -> None: ...
