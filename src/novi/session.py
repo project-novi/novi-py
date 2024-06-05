@@ -398,10 +398,14 @@ class Session:
                             if reply.HasField('session')
                             else None
                         )
+                        identity = Identity(reply.identity)
+                        if session is not None:
+                            session.identity = identity
                         resp = callback(
                             object=object,
                             old_object=old_object,
                             session=session,
+                            identity=identity,
                         )
                         # TODO: ObjectEdits
                         resp = novi_pb2.RegCoreHookRequest(
@@ -456,6 +460,7 @@ class Session:
                 for reply in reply_stream:
                     try:
                         session = Session(self._client, reply.session)
+                        session.identity = Identity(reply.identity)
                         original_result = (
                             json.loads(reply.original_result)
                             if reply.HasField('original_result')
@@ -529,6 +534,7 @@ class Session:
                 for reply in reply_stream:
                     try:
                         session = Session(self._client, reply.session)
+                        session.identity = Identity(reply.identity)
                         resp = function(
                             arguments=json.loads(reply.arguments),
                             session=session,

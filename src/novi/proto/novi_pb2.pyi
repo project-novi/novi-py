@@ -337,16 +337,18 @@ class RegCoreHookRequest(_message.Message):
     def __init__(self, initiate: _Optional[_Union[RegCoreHookRequest.Initiate, _Mapping]] = ..., result: _Optional[_Union[RegCoreHookRequest.CallResult, _Mapping]] = ...) -> None: ...
 
 class RegCoreHookReply(_message.Message):
-    __slots__ = ("call_id", "object", "old_object", "session")
+    __slots__ = ("call_id", "object", "old_object", "session", "identity")
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     OBJECT_FIELD_NUMBER: _ClassVar[int]
     OLD_OBJECT_FIELD_NUMBER: _ClassVar[int]
     SESSION_FIELD_NUMBER: _ClassVar[int]
+    IDENTITY_FIELD_NUMBER: _ClassVar[int]
     call_id: int
     object: Object
     old_object: Object
     session: str
-    def __init__(self, call_id: _Optional[int] = ..., object: _Optional[_Union[Object, _Mapping]] = ..., old_object: _Optional[_Union[Object, _Mapping]] = ..., session: _Optional[str] = ...) -> None: ...
+    identity: str
+    def __init__(self, call_id: _Optional[int] = ..., object: _Optional[_Union[Object, _Mapping]] = ..., old_object: _Optional[_Union[Object, _Mapping]] = ..., session: _Optional[str] = ..., identity: _Optional[str] = ...) -> None: ...
 
 class HookAction(_message.Message):
     __slots__ = ("update_args", "result_or_args")
@@ -381,16 +383,18 @@ class RegHookRequest(_message.Message):
     def __init__(self, initiate: _Optional[_Union[RegHookRequest.Initiate, _Mapping]] = ..., result: _Optional[_Union[RegHookRequest.CallResult, _Mapping]] = ...) -> None: ...
 
 class RegHookReply(_message.Message):
-    __slots__ = ("call_id", "arguments", "original_result", "session")
+    __slots__ = ("call_id", "arguments", "original_result", "session", "identity")
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     ORIGINAL_RESULT_FIELD_NUMBER: _ClassVar[int]
     SESSION_FIELD_NUMBER: _ClassVar[int]
+    IDENTITY_FIELD_NUMBER: _ClassVar[int]
     call_id: int
     arguments: str
     original_result: str
     session: str
-    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[str] = ..., original_result: _Optional[str] = ..., session: _Optional[str] = ...) -> None: ...
+    identity: str
+    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[str] = ..., original_result: _Optional[str] = ..., session: _Optional[str] = ..., identity: _Optional[str] = ...) -> None: ...
 
 class RegFunctionRequest(_message.Message):
     __slots__ = ("initiate", "result")
@@ -415,14 +419,16 @@ class RegFunctionRequest(_message.Message):
     def __init__(self, initiate: _Optional[_Union[RegFunctionRequest.Initiate, _Mapping]] = ..., result: _Optional[_Union[RegFunctionRequest.CallResult, _Mapping]] = ...) -> None: ...
 
 class RegFunctionReply(_message.Message):
-    __slots__ = ("call_id", "arguments", "session")
+    __slots__ = ("call_id", "arguments", "session", "identity")
     CALL_ID_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     SESSION_FIELD_NUMBER: _ClassVar[int]
+    IDENTITY_FIELD_NUMBER: _ClassVar[int]
     call_id: int
     arguments: str
     session: str
-    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[str] = ..., session: _Optional[str] = ...) -> None: ...
+    identity: str
+    def __init__(self, call_id: _Optional[int] = ..., arguments: _Optional[str] = ..., session: _Optional[str] = ..., identity: _Optional[str] = ...) -> None: ...
 
 class CallFunctionRequest(_message.Message):
     __slots__ = ("name", "arguments")
