@@ -8,7 +8,7 @@ from .proto import novi_pb2
 
 from typing import Dict, Optional
 
-_METADATA_KEYS = {'permission', 'id', 'tag', 'type'}
+_METADATA_KEYS = {'argument', 'permission', 'id', 'tag', 'type'}
 
 lg = get_logger()
 
