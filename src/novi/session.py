@@ -156,13 +156,17 @@ class Session:
             self.identity = old_identity
 
     @handle_error
-    def login_as(self, user: Union[UUID, str]) -> Identity:
+    def login_as(
+        self, user: Union[UUID, str], temporary: bool = False
+    ) -> Identity:
         if isinstance(user, str):
             user = UUID(user)
 
         token = self._send(
             self.client._stub.LoginAs,
-            novi_pb2.LoginAsRequest(user=uuid_to_pb(user)),
+            novi_pb2.LoginAsRequest(
+                user=uuid_to_pb(user), temporary=temporary
+            ),
         ).identity
         return Identity(token)
 
@@ -510,6 +514,7 @@ class Session:
         self,
         name: str,
         function: Callable,
+        permission: Optional[str] = None,
         **kwargs,
     ):
         function = _wrap_function(function, **kwargs)
@@ -521,7 +526,9 @@ class Session:
 
         q.put(
             novi_pb2.RegFunctionRequest(
-                initiate=novi_pb2.RegFunctionRequest.Initiate(name=name)
+                initiate=novi_pb2.RegFunctionRequest.Initiate(
+                    name=name, permission=permission
+                )
             )
         )
 

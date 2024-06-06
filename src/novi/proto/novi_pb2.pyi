@@ -105,10 +105,12 @@ class LoginReply(_message.Message):
     def __init__(self, identity: _Optional[str] = ...) -> None: ...
 
 class LoginAsRequest(_message.Message):
-    __slots__ = ("user",)
+    __slots__ = ("user", "temporary")
     USER_FIELD_NUMBER: _ClassVar[int]
+    TEMPORARY_FIELD_NUMBER: _ClassVar[int]
     user: UUID
-    def __init__(self, user: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
+    temporary: bool
+    def __init__(self, user: _Optional[_Union[UUID, _Mapping]] = ..., temporary: bool = ...) -> None: ...
 
 class LoginAsReply(_message.Message):
     __slots__ = ("identity",)
@@ -399,10 +401,12 @@ class RegHookReply(_message.Message):
 class RegFunctionRequest(_message.Message):
     __slots__ = ("initiate", "result")
     class Initiate(_message.Message):
-        __slots__ = ("name",)
+        __slots__ = ("name", "permission")
         NAME_FIELD_NUMBER: _ClassVar[int]
+        PERMISSION_FIELD_NUMBER: _ClassVar[int]
         name: str
-        def __init__(self, name: _Optional[str] = ...) -> None: ...
+        permission: str
+        def __init__(self, name: _Optional[str] = ..., permission: _Optional[str] = ...) -> None: ...
     class CallResult(_message.Message):
         __slots__ = ("call_id", "response", "error")
         CALL_ID_FIELD_NUMBER: _ClassVar[int]
