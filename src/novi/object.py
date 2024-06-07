@@ -217,7 +217,7 @@ class Object(BaseObject):
         """Opens the object as a file-like object."""
         from urllib.request import urlopen
 
-        urlopen(self.url(variant))
+        return urlopen(self.url(variant))
 
     def read_text(self, encoding: str = 'utf-8', **kwargs) -> str:
         """Reads the object's content as text."""
