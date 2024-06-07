@@ -1,7 +1,5 @@
 from pathlib import Path
-from uuid import UUID
-
-from typing import Union
+from urllib.parse import urlparse
 
 _storage_path = Path('storage')
 
@@ -11,6 +9,10 @@ def set_storage_path(path: Path) -> None:
     _storage_path = path
 
 
-def object_path(id: Union[UUID, str], variant: str = 'original') -> Path:
-    name = str(id) if variant == 'original' else f'{id}.{variant}'
+def parse_file_url(url: str) -> Path:
+    parsed = urlparse(url)
+    assert parsed.scheme == 'file'
+    id = parsed.netloc
+    variant = parsed.path.lstrip('/')
+    name = id if variant == 'original' else f'{id}.{variant}'
     return _storage_path / name

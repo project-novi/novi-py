@@ -1,22 +1,18 @@
-import shutil
-
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from uuid import UUID
 
 from .errors import InvalidArgumentError
-from .file import object_path
 from .misc import uuid_from_pb, dt_from_timestamp, rfc3339
 from .proto import novi_pb2
 
 from typing import (
+    BinaryIO,
     ClassVar,
     Dict,
     Iterator,
     Optional,
     Set,
-    Union,
     TYPE_CHECKING,
 )
 
@@ -182,102 +178,6 @@ class BaseObject:
             f'created={self.created})'
         )
 
-    def file_uri(self, variant: str = 'original') -> str:
-        """Returns the URI of the object files."""
-        return self.path(variant).resolve().as_uri()
-
-    def path(self, variant: str = 'original', direct: bool = False) -> Path:
-        """Returns the local path of the object files, will fetch the file
-        from the remote storage if necessary."""
-        from .errors import FileNotFoundError
-
-        rid, rvar = str(self.id), variant
-        if not direct:
-            key = f'@file:{variant}'
-            if not self.has(key):
-                raise FileNotFoundError(
-                    'missing in object meta',
-                    {
-                        'id': str(self.id),
-                        'variant': variant,
-                    },
-                )
-
-            if redirect := self[f'@file:{variant}']:
-                from urllib.parse import urlparse
-
-                url = urlparse(redirect)
-                if url.scheme == 'object':
-                    rid, rvar = url.netloc, (
-                        'original' if len(url.path) <= 1 else url.path[1:]
-                    )
-                else:
-                    raise FileNotFoundError(
-                        'redirect not supported',
-                        {
-                            'id': str(self.id),
-                            'variant': variant,
-                        },
-                    )
-
-        return object_path(rid, rvar)
-
-    def open(
-        self,
-        mode: str = 'r',
-        variant: str = 'original',
-        direct: bool = False,
-        **kwargs,
-    ):
-        """Opens the object as a file-like object."""
-
-        return self.path(variant=variant, direct=direct).open(mode, **kwargs)
-
-    def read_text(self, **kwargs) -> str:
-        """Reads the object as a text file."""
-
-        with self.open(mode='r', **kwargs) as f:
-            return f.read()
-
-    def read_bytes(self, **kwargs) -> bytes:
-        """Reads the object as a bytes file."""
-
-        with self.open(mode='rb', **kwargs) as f:
-            return f.read()
-
-    def upload(
-        self,
-        data: Union[Path, bytes, str],
-        move: bool = False,
-        variant: str = 'original',
-    ):
-        """Uploads content to the object."""
-
-        path = self.path(variant=variant, direct=True)
-
-        if isinstance(data, Path):
-            if move:
-                shutil.move(data, path)
-            else:
-                shutil.copy(data, path)
-
-        elif isinstance(data, bytes):
-            path.write_bytes(data)
-
-        elif isinstance(data, str):
-            path.write_text(data)
-
-        else:
-            raise ValueError(f'unknown content type: {type(data)}')
-
-        self.set(f'@file:{variant}')
-
-    def upload_from_url(self, url: str, variant: str = 'original', **kwargs):
-        from urllib.request import urlretrieve
-
-        file, headers = urlretrieve(url)
-        self.upload(Path(file), move=True, variant=variant)
-
 
 class Object(BaseObject):
     _session: 'Session'
@@ -305,6 +205,35 @@ class Object(BaseObject):
 
     def delete(self):
         self._session.delete_object(self.id)
+
+    def url(self, *args, **kwargs) -> str:
+        """Returns the URL of the object files."""
+        return self._session.get_object_url(self.id, *args, **kwargs)
+
+    def open(
+        self,
+        variant: str = 'original',
+    ) -> BinaryIO:
+        """Opens the object as a file-like object."""
+        from urllib.request import urlopen
+
+        urlopen(self.url(variant))
+
+    def read_text(self, encoding: str = 'utf-8', **kwargs) -> str:
+        """Reads the object's content as text."""
+
+        with self.open(**kwargs) as f:
+            return f.read().decode(encoding=encoding)
+
+    def read_bytes(self, **kwargs) -> bytes:
+        """Reads the object's content as bytes."""
+
+        with self.open(**kwargs) as f:
+            return f.read()
+
+    def store(self, *args, **kwargs):
+        """Stores a file or URL as the object's content."""
+        self._session.store_object(self.id, *args, **kwargs)
 
 
 class EditableObject(BaseObject):

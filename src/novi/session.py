@@ -4,6 +4,7 @@ import json
 
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 from pydantic import TypeAdapter
 from queue import Queue
 from threading import Thread
@@ -573,7 +574,7 @@ class Session:
         self,
         name: str,
         arguments: Dict[str, Any],
-    ) -> Any:
+    ) -> Dict[str, Any]:
         result = self._send(
             self.client._stub.CallFunction,
             novi_pb2.CallFunctionRequest(
@@ -581,3 +582,47 @@ class Session:
             ),
         ).result
         return json.loads(result)
+
+    def get_object_url(
+        self,
+        id: Union[UUID, str],
+        variant: str = 'original',
+        prefer_local: bool = False,
+    ) -> str:
+        from .file import parse_file_url
+
+        url = self.call_function(
+            'file.url',
+            {'id': str(id), 'variant': variant, 'prefer_local': prefer_local},
+        )['url']
+        if url.startswith('file://'):
+            path = parse_file_url(url)
+            return path.resolve().as_uri()
+        return url
+
+    def store_object(
+        self,
+        id: Union[UUID, str],
+        path: Optional[Union[Path, str]] = None,
+        url: Optional[str] = None,
+        variant: str = 'original',
+        storage: str = 'default',
+        overwrite: bool = False,
+    ):
+        """Stores a file or URL as the object's content."""
+        args = {
+            'id': str(id),
+            'variant': variant,
+            'storage': storage,
+            'overwrite': overwrite,
+        }
+        if path is not None:
+            if url is not None:
+                raise ValueError('cannot specify both path and url')
+            args['path'] = str(path)
+        elif url is not None:
+            args['url'] = url
+        else:
+            raise ValueError('must specify either path or url')
+
+        self.call_function('file.store', args)
