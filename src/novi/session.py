@@ -587,6 +587,7 @@ class Session:
         self,
         id: Union[UUID, str],
         variant: str = 'original',
+        resolve_file: bool = True,
         prefer_local: bool = False,
     ) -> str:
         from .file import parse_file_url
@@ -595,7 +596,7 @@ class Session:
             'file.url',
             {'id': str(id), 'variant': variant, 'prefer_local': prefer_local},
         )['url']
-        if url.startswith('file://'):
+        if resolve_file and url.startswith('file://'):
             path = parse_file_url(url)
             return path.resolve().as_uri()
         return url
