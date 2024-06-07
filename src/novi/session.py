@@ -587,21 +587,26 @@ class Session:
         self,
         id: Union[UUID, str],
         variant: str = 'original',
-        prefer_local: bool = False,
+        resolve_ipfs: bool = True,
     ) -> str:
-        return self.call_function(
+        url = self.call_function(
             'file.url',
-            {'id': str(id), 'variant': variant, 'prefer_local': prefer_local},
+            {'id': str(id), 'variant': variant},
         )['url']
+        if url.startswith('ipfs://') and resolve_ipfs:
+            from .file import get_ipfs_gateway
+
+            url = get_ipfs_gateway() + '/ipfs/' + url[7:]
+
+        return url
 
     def open_object(
         self,
         *args,
         **kwargs,
     ):
-        from .file import open_url
-
-        return open_url(self.get_object_url(*args, **kwargs))
+        from urllib.request import urlopen
+        return urlopen(self.get_object_url(*args, **kwargs))
 
     def store_object(
         self,
