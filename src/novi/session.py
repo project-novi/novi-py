@@ -587,19 +587,21 @@ class Session:
         self,
         id: Union[UUID, str],
         variant: str = 'original',
-        resolve_file: bool = True,
         prefer_local: bool = False,
     ) -> str:
-        from .file import parse_file_url
-
-        url = self.call_function(
+        return self.call_function(
             'file.url',
             {'id': str(id), 'variant': variant, 'prefer_local': prefer_local},
         )['url']
-        if resolve_file and url.startswith('file://'):
-            path = parse_file_url(url)
-            return path.resolve().as_uri()
-        return url
+
+    def open_object(
+        self,
+        *args,
+        **kwargs,
+    ):
+        from .file import open_url
+
+        return open_url(self.get_object_url(*args, **kwargs))
 
     def store_object(
         self,

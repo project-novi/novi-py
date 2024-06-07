@@ -210,14 +210,9 @@ class Object(BaseObject):
         """Returns the URL of the object files."""
         return self._session.get_object_url(self.id, *args, **kwargs)
 
-    def open(
-        self,
-        variant: str = 'original',
-    ) -> BinaryIO:
+    def open(self, *args, **kwargs) -> BinaryIO:
         """Opens the object as a file-like object."""
-        from urllib.request import urlopen
-
-        return urlopen(self.url(variant))
+        return self._session.open_object(self.id, *args, **kwargs)
 
     def read_text(self, encoding: str = 'utf-8', **kwargs) -> str:
         """Reads the object's content as text."""
