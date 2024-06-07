@@ -138,7 +138,7 @@ def new_session(**kwargs) -> Session:
 def wrap_session(
     wrap_object: bool = True,
     append_session: bool = True,
-    lock: Optional[bool] = True,
+    lock: Optional[bool] = None,
 ):
     def decorator(func):
         @wraps(func)
