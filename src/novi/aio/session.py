@@ -1,24 +1,27 @@
+import aiohttp
+import asyncio
 import grpc
 import inspect
 import json
 
-from contextlib import contextmanager
+from asyncio import Task, Queue
+from contextlib import asynccontextmanager
 from datetime import datetime
-from pathlib import Path
 from pydantic import TypeAdapter
-from queue import Queue
-from threading import Thread
 from uuid import UUID
 
-from .errors import NoviError, handle_error
-from .identity import Identity
-from .misc import uuid_to_pb, dt_to_timestamp, tags_to_pb
-from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
-from .object import BaseObject, Object, EditableObject
-from .proto import novi_pb2
+from ..errors import NoviError, handle_error
+from ..identity import Identity
+from ..misc import dt_to_timestamp
+from ..model import EventKind, HookAction, HookPoint
+from ..object import BaseObject, EditableObject
+from ..proto import novi_pb2
+from ..session import Session as SyncSession
+from .object import Object
 
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Iterator,
@@ -34,9 +37,9 @@ if TYPE_CHECKING:
     from .client import Client
 
 
-def _queue_as_gen(q: Queue):
+async def _queue_as_gen(q: Queue):
     while True:
-        yield q.get()
+        yield await q.get()
 
 
 def _wrap_function(
@@ -94,12 +97,8 @@ def _wrap_function(
     return wrapper
 
 
-class Session:
-    token: Optional[str]
-    identity: Optional[Identity]
-
-    _entered = False
-    _workers: List[Thread]
+class Session(SyncSession):
+    _tasks: List[Task]
 
     def __init__(
         self,
@@ -107,198 +106,49 @@ class Session:
         token: Optional[str],
         identity: Optional[Identity] = None,
     ):
-        self.client = client
-        self.token = token
-        self.identity = identity
+        super().__init__(client, token, identity)
+        self._tasks = []
 
-        self._workers = []
-
-    def _new_object(self, pb: novi_pb2.Object):
+    def _new_object(self, pb: novi_pb2.Object) -> Object:
         return Object.from_pb(pb, self)
 
-    def _send(self, fn, request, map_result=None):
+    async def _send(self, fn, request, map_result=None):
         metadata = []
         if self.token:
             metadata.append(('session', self.token))
         if self.identity:
             metadata.append(('identity', self.identity.token))
-        result = fn(request, metadata=metadata)
+        result = await fn(request, metadata=metadata)
         if map_result:
             return map_result(result)
         return result
 
     def __enter__(self):
-        if self._entered:
-            raise RuntimeError('session already entered')
-        self._entered = True
-        return self
+        raise RuntimeError('use async with')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not self._entered:
-            raise RuntimeError('session not entered')
+        raise RuntimeError('use async with')
 
-        return self.end(exc_type is None)
+    async def __aenter__(self):
+        return super().__enter__()
 
-    def end(self, commit=True):
-        self._entered = False
-        return self._send(
-            self.client._stub.EndSession,
-            novi_pb2.EndSessionRequest(commit=commit),
-            lambda _: None,
-        )
+    def __aexit__(self, exc_type, exc_val, exc_tb):
+        return super().__exit__(exc_type, exc_val, exc_tb)
 
-    @contextmanager
-    def use_identity(self, identity: Identity):
-        old_identity = self.identity
-        self.identity = identity
-        try:
-            yield
-        finally:
-            self.identity = old_identity
-
-    @handle_error
-    def login_as(
-        self, user: Union[UUID, str], temporary: bool = False
-    ) -> Identity:
-        if isinstance(user, str):
-            user = UUID(user)
-
-        return self._send(
-            self.client._stub.LoginAs,
-            novi_pb2.LoginAsRequest(
-                user=uuid_to_pb(user), temporary=temporary
-            ),
-            lambda reply: Identity(reply.identity),
-        )
-
-    @handle_error
-    def create_object(self, tags: Tags) -> Object:
-        return self._send(
-            self.client._stub.CreateObject,
-            novi_pb2.CreateObjectRequest(tags=tags_to_pb(tags)),
-            lambda reply: self._new_object(reply.object),
-        )
-
-    @handle_error
-    def get_object(self, id: Union[UUID, str]) -> Object:
-        if isinstance(id, str):
-            id = UUID(id)
-
-        return self._send(
-            self.client._stub.GetObject,
-            novi_pb2.GetObjectRequest(id=uuid_to_pb(id)),
-            lambda reply: self._new_object(reply.object),
-        )
-
-    @handle_error
-    def update_object(
-        self, id: Union[UUID, str], tags: Tags, force: bool = False
-    ) -> Object:
-        if isinstance(id, str):
-            id = UUID(id)
-
-        return self._send(
-            self.client._stub.UpdateObject,
-            novi_pb2.UpdateObjectRequest(
-                id=uuid_to_pb(id), tags=tags_to_pb(tags), force=force
-            ),
-            lambda reply: self._new_object(reply.object),
-        )
-
-    @handle_error
-    def replace_object(
-        self,
-        id: Union[UUID, str],
-        tags: Tags,
-        scopes: Optional[Set[str]] = None,
-        force: bool = False,
-    ) -> Object:
-        if isinstance(id, str):
-            id = UUID(id)
-
-        return self._send(
-            self.client._stub.ReplaceObject,
-            novi_pb2.ReplaceObjectRequest(
-                id=uuid_to_pb(id),
-                tags=tags_to_pb(tags),
-                scopes=(
-                    None if scopes is None else novi_pb2.Scopes(scopes=scopes)
-                ),
-                force=force,
-            ),
-            lambda reply: self._new_object(reply.object),
-        )
-
-    @handle_error
-    def delete_object_tags(
-        self, id: Union[UUID, str], tags: Iterator[str]
-    ) -> Object:
-        if isinstance(id, str):
-            id = UUID(id)
-
-        return self._send(
-            self.client._stub.DeleteObjectTags,
-            novi_pb2.DeleteObjectTagsRequest(id=uuid_to_pb(id), tags=tags),
-            lambda reply: self._new_object(reply.object),
-        )
-
-    @handle_error
-    def delete_object(self, id: Union[UUID, str]):
-        if isinstance(id, str):
-            id = UUID(id)
-
-        return self._send(
-            self.client._stub.DeleteObject,
-            novi_pb2.DeleteObjectRequest(id=uuid_to_pb(id)),
-            lambda _: None,
-        )
-
-    @handle_error
-    def query(
-        self,
-        filter: str,
-        checkpoint: Optional[datetime] = None,
-        updated_after: Optional[datetime] = None,
-        updated_before: Optional[datetime] = None,
-        created_after: Optional[datetime] = None,
-        created_before: Optional[datetime] = None,
-        order: QueryOrder = QueryOrder.CREATED_DESC,
-        limit: Optional[int] = 30,
-    ) -> List[Object]:
-        def to_timestamp(dt: Optional[datetime]):
-            return None if dt is None else dt_to_timestamp(dt)
-
-        return self._send(
-            self.client._stub.Query,
-            novi_pb2.QueryRequest(
-                filter=filter,
-                checkpoint=to_timestamp(checkpoint),
-                updated_after=to_timestamp(updated_after),
-                updated_before=to_timestamp(updated_before),
-                created_after=to_timestamp(created_after),
-                created_before=to_timestamp(created_before),
-                order=order.value,
-                limit=limit,
-            ),
-            lambda reply: [self._new_object(obj) for obj in reply.objects],
-        )
-
-    def query_one(self, filter: str, **kwargs) -> Optional[Object]:
-        objects = self.query(filter, limit=1, **kwargs)
+    async def query_one(self, filter: str, **kwargs) -> Optional[Object]:
+        objects = await self.query(filter, limit=1, **kwargs)
         if objects:
             return objects[0]
         return None
 
-    def _spawn_worker(self, target, **kwargs):
-        worker = Thread(target=target, **kwargs)
-        self._workers.append(worker)
-        worker.start()
+    def _spawn_task(self, coro):
+        task = asyncio.create_task(coro)
+        self._tasks.append(task)
 
-    def join(self):
-        for worker in self._workers:
-            worker.join()
+    async def join(self):
+        await asyncio.gather(*self._tasks)
 
-    def subscribe_stream(
+    async def subscribe_stream(
         self,
         filter: str,
         checkpoint: Optional[datetime] = None,
@@ -307,8 +157,8 @@ class Session:
             EventKind.UPDATE,
             EventKind.DELETE,
         },
-    ) -> Iterator[Tuple[BaseObject, EventKind]]:
-        it = self._send(
+    ) -> AsyncIterator[Tuple[BaseObject, EventKind]]:
+        it = super()._send(
             self.client._stub.Subscribe,
             novi_pb2.SubscribeRequest(
                 filter=filter,
@@ -319,7 +169,7 @@ class Session:
             ),
         )
         try:
-            for event in it:
+            async for event in it:
                 object = self._new_object(event.object)
                 kind = EventKind(event.kind)
                 yield object, kind
@@ -327,7 +177,7 @@ class Session:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
-    def subscribe(
+    async def subscribe(
         self,
         filter: str,
         callback: Callable[[BaseObject, EventKind], None],
@@ -338,24 +188,27 @@ class Session:
             EventKind.DELETE,
         },
     ):
-        def worker():
+        async def worker():
             try:
-                for object, kind in self.subscribe_stream(
+                async for object, kind in self.subscribe_stream(
                     filter, checkpoint, accept_kinds
                 ):
-                    callback(object, kind)
+                    resp = callback(object, kind)
+                    if inspect.isawaitable(resp):
+                        await resp
+
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise
 
-        self._spawn_worker(worker)
+        self._spawn_task(worker())
 
     @handle_error
-    def register_core_hook(
+    async def register_core_hook(
         self, point: HookPoint, filter: str, callback: Callable
     ):
         q = Queue()
-        q.put(
+        await q.put(
             novi_pb2.RegCoreHookRequest(
                 initiate=novi_pb2.RegCoreHookRequest.Initiate(
                     point=point.value,
@@ -364,13 +217,13 @@ class Session:
             )
         )
 
-        reply_stream: Iterator[novi_pb2.RegCoreHookReply] = self._send(
+        reply_stream: AsyncIterator[novi_pb2.RegCoreHookReply] = super()._send(
             self.client._stub.RegisterCoreHook, _queue_as_gen(q)
         )
 
-        def worker():
+        async def worker():
             try:
-                for reply in reply_stream:
+                async for reply in reply_stream:
                     try:
                         object = EditableObject.from_pb(reply.object)
                         old_object = (
@@ -392,6 +245,9 @@ class Session:
                             session=session,
                             identity=identity,
                         )
+                        if inspect.isawaitable(resp):
+                            resp = await resp
+
                         # TODO: ObjectEdits
                         resp = novi_pb2.RegCoreHookRequest(
                             result=novi_pb2.RegCoreHookRequest.CallResult(
@@ -412,17 +268,19 @@ class Session:
                             )
                         )
 
-                    q.put(resp)
+                    await q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
-        self._spawn_worker(worker)
+        self._spawn_task(worker())
 
     @handle_error
-    def register_hook(self, function: str, before: bool, callback: Callable):
+    async def register_hook(
+        self, function: str, before: bool, callback: Callable
+    ):
         q = Queue()
-        q.put(
+        await q.put(
             novi_pb2.RegHookRequest(
                 initiate=novi_pb2.RegHookRequest.Initiate(
                     function=function,
@@ -431,13 +289,13 @@ class Session:
             )
         )
 
-        reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
+        reply_stream: Iterator[novi_pb2.RegHookReply] = super()._send(
             self.client._stub.RegisterHook, _queue_as_gen(q)
         )
 
-        def worker():
+        async def worker():
             try:
-                for reply in reply_stream:
+                async for reply in reply_stream:
                     try:
                         session = Session(self.client, reply.session)
                         session.identity = Identity(reply.identity)
@@ -451,6 +309,9 @@ class Session:
                             original_result=original_result,
                             session=session,
                         )
+                        if inspect.isawaitable(resp):
+                            resp = await resp
+
                         if resp is None:
                             resp = HookAction.none()
                         assert isinstance(resp, HookAction)
@@ -478,15 +339,15 @@ class Session:
                             )
                         )
 
-                    q.put(resp)
+                    await q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
-        self._spawn_worker(worker)
+        self._spawn_task(worker())
 
     @handle_error
-    def register_function(
+    async def register_function(
         self,
         name: str,
         function: Callable,
@@ -495,7 +356,7 @@ class Session:
     ):
         function = _wrap_function(function, **kwargs)
         q = Queue()
-        q.put(
+        await q.put(
             novi_pb2.RegFunctionRequest(
                 initiate=novi_pb2.RegFunctionRequest.Initiate(
                     name=name, permission=permission
@@ -503,13 +364,13 @@ class Session:
             )
         )
 
-        reply_stream: Iterator[novi_pb2.RegFunctionReply] = self._send(
+        reply_stream: Iterator[novi_pb2.RegFunctionReply] = super()._send(
             self.client._stub.RegisterFunction, _queue_as_gen(q)
         )
 
-        def worker():
+        async def worker():
             try:
-                for reply in reply_stream:
+                async for reply in reply_stream:
                     try:
                         session = Session(self.client, reply.session)
                         session.identity = Identity(reply.identity)
@@ -532,76 +393,45 @@ class Session:
                             )
                         )
 
-                    q.put(resp)
+                    await q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
-        self._spawn_worker(worker)
+        self._spawn_task(worker())
 
-    @handle_error
-    def call_function(
-        self,
-        name: str,
-        arguments: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        return self._send(
-            self.client._stub.CallFunction,
-            novi_pb2.CallFunctionRequest(
-                name=name, arguments=json.dumps(arguments)
-            ),
-            lambda reply: json.loads(reply.result),
-        )
-
-    def get_object_url(
+    async def get_object_url(
         self,
         id: Union[UUID, str],
         variant: str = 'original',
         resolve_ipfs: bool = True,
     ) -> str:
-        url = self.call_function(
-            'file.url',
-            {'id': str(id), 'variant': variant},
+        url = (
+            await self.call_function(
+                'file.url',
+                {'id': str(id), 'variant': variant},
+            )
         )['url']
         if url.startswith('ipfs://') and resolve_ipfs:
-            from .file import get_ipfs_gateway
+            from ..file import get_ipfs_gateway
 
             url = get_ipfs_gateway() + '/ipfs/' + url[7:]
 
         return url
 
-    def open_object(
+    @asynccontextmanager
+    async def open_object(
         self,
         *args,
+        session: Optional[aiohttp.ClientSession] = None,
         **kwargs,
-    ):
-        from urllib.request import urlopen
+    ) -> AsyncIterator[aiohttp.StreamReader]:
+        url = await self.get_object_url(*args, **kwargs)
 
-        return urlopen(self.get_object_url(*args, **kwargs))
-
-    def store_object(
-        self,
-        id: Union[UUID, str],
-        path: Optional[Union[Path, str]] = None,
-        url: Optional[str] = None,
-        variant: str = 'original',
-        storage: str = 'default',
-        overwrite: bool = False,
-    ):
-        """Stores a file or URL as the object's content."""
-        args = {
-            'id': str(id),
-            'variant': variant,
-            'storage': storage,
-            'overwrite': overwrite,
-        }
-        if path is not None:
-            if url is not None:
-                raise ValueError('cannot specify both path and url')
-            args['path'] = str(path)
-        elif url is not None:
-            args['url'] = url
+        if session is None:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    yield resp.content
         else:
-            raise ValueError('must specify either path or url')
-
-        return self.call_function('file.store', args)
+            async with session.get(url) as resp:
+                yield resp.content

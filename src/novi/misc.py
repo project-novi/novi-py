@@ -1,3 +1,4 @@
+from .model import Tags
 from .proto import novi_pb2
 
 from datetime import datetime, timezone
@@ -23,3 +24,15 @@ def uuid_to_pb(uuid: UUID) -> novi_pb2.UUID:
 
 def rfc3339(dt: datetime) -> str:
     return dt.isoformat()[:-6] + 'Z'
+
+
+def tags_to_pb(ts: Tags) -> novi_pb2.Tags:
+    tags = []
+    properties = {}
+    for tag, value in ts.items():
+        if value is None:
+            tags.append(tag)
+        else:
+            properties[tag] = value
+
+    return novi_pb2.Tags(tags=tags, properties=properties)

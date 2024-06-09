@@ -1,7 +1,18 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+
+@dataclass
+class TagValue:
+    value: Optional[str]
+    updated: datetime
+
+
+Tags = Dict[str, Optional[str]]
+TagDict = Dict[str, TagValue]
 
 
 class QueryOrder(Enum):

@@ -1,4 +1,5 @@
 import grpc
+import inspect
 import sys
 
 from structlog import get_logger
@@ -40,7 +41,19 @@ def handle_error(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            return func(*args, **kwargs)
+            resp = func(*args, **kwargs)
+            if inspect.isawaitable(resp):
+
+                async def awaitable_wrapper():
+                    try:
+                        return await resp
+                    except grpc.RpcError as e:
+                        raise NoviError.from_grpc(e) from None
+
+                return awaitable_wrapper()
+
+            return resp
+
         except grpc.RpcError as e:
             raise NoviError.from_grpc(e) from None
 
@@ -68,7 +81,7 @@ class NoviError(Exception):
     @staticmethod
     def from_grpc(exc: grpc.RpcError):
         metadata = exc.trailing_metadata()
-        metadata = {datum.key: datum.value for datum in metadata}
+        metadata = {datum[0]: datum[1] for datum in metadata}
         error = _error_kind(metadata.get('kind', ''))
         return error(
             str(exc.details()),

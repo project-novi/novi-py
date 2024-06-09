@@ -1,44 +1,45 @@
 import grpc
 
-from .errors import handle_error
-from .identity import Identity
-from .proto import novi_pb2, novi_pb2_grpc
+from ..errors import handle_error
+from ..identity import Identity
+from ..proto import novi_pb2, novi_pb2_grpc
 from .session import Session
 
 from typing import Iterable, Optional, Union
 
 
 class Client:
-    def __init__(self, channel: grpc.Channel):
+    def __init__(self, channel: grpc.aio.Channel):
         self._stub = novi_pb2_grpc.NoviStub(channel)
 
     @handle_error
-    def login(self, username: str, password: str) -> Identity:
-        token = self._stub.Login(
+    async def login(self, username: str, password: str) -> Identity:
+        token = await self._stub.Login(
             novi_pb2.LoginRequest(username=username, password=password)
         ).identity
         return Identity(token)
 
     @handle_error
-    def session(
+    async def session(
         self, identity: Optional[Identity] = None, lock: Optional[bool] = None
     ) -> Session:
         gen = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
             metadata=(('identity', identity.token),) if identity else (),
         )
-        token = next(gen).token
+        token = (await gen.read()).token
         session = Session(self, token)
         session.identity = identity
 
-        def read_gen():
+        async def read_gen():
             try:
-                for resp in gen:
-                    pass
+                while True:
+                    if await gen.read() is None:
+                        break
             except grpc.RpcError:
                 pass
 
-        session._spawn_worker(read_gen)
+        session._spawn_task(read_gen())
 
         return session
 
@@ -51,14 +52,16 @@ class Client:
         return session
 
     @handle_error
-    def use_master_key(self, master_key: str) -> Identity:
-        token = self._stub.UseMasterKey(
-            novi_pb2.UseMasterKeyRequest(key=master_key)
+    async def use_master_key(self, master_key: str) -> Identity:
+        token = (
+            await self._stub.UseMasterKey(
+                novi_pb2.UseMasterKeyRequest(key=master_key)
+            )
         ).identity
         return Identity(token)
 
     @handle_error
-    def check_permission(
+    async def check_permission(
         self,
         identity: Identity,
         permission: Union[str, Iterable[str]],
@@ -66,10 +69,16 @@ class Client:
     ) -> bool:
         if isinstance(permission, str):
             permission = [permission]
-        return self._stub.CheckPermission(
-            novi_pb2.CheckPermissionRequest(permissions=permission, bail=bail),
-            metadata=(('identity', identity.token),),
+        return (
+            await self._stub.CheckPermission(
+                novi_pb2.CheckPermissionRequest(
+                    permissions=permission, bail=bail
+                ),
+                metadata=(('identity', identity.token),),
+            )
         ).ok
 
-    def has_permission(self, identity: Identity, permission: str) -> bool:
-        return self.check_permission(identity, permission, bail=False)
+    async def has_permission(
+        self, identity: Identity, permission: str
+    ) -> bool:
+        return await self.check_permission(identity, permission, bail=False)

@@ -4,12 +4,12 @@ from uuid import UUID
 
 from .errors import InvalidArgumentError
 from .misc import uuid_from_pb, dt_from_timestamp, rfc3339
+from .model import TagDict, TagValue, Tags
 from .proto import novi_pb2
 
 from typing import (
     BinaryIO,
     ClassVar,
-    Dict,
     Iterator,
     Optional,
     Set,
@@ -43,16 +43,6 @@ class ObjectFormat:
 
 ObjectFormat.FULL = ObjectFormat('id,creator,updated,created,tags')
 ObjectFormat.BRIEF = ObjectFormat('id,creator,updated,created,tags:brief')
-
-
-@dataclass
-class TagValue:
-    value: Optional[str]
-    updated: datetime
-
-
-Tags = Dict[str, Optional[str]]
-TagDict = Dict[str, TagValue]
 
 
 def _format_tags(tag_dict: TagDict) -> str:
@@ -189,22 +179,22 @@ class Object(BaseObject):
         return obj
 
     def set(self, tag: str, value: Optional[str] = None):
-        self.assign(self._session.update_object(self.id, {tag: value}))
+        return self.assign(self._session.update_object(self.id, {tag: value}))
 
     def update(self, tags: Tags):
-        self.assign(self._session.update_object(self.id, tags))
+        return self.assign(self._session.update_object(self.id, tags))
 
     def replace(self, tags: Tags, scopes: Optional[Tags] = None):
-        self.assign(self._session.replace_object(self.id, tags, scopes))
+        return self.assign(self._session.replace_object(self.id, tags, scopes))
 
     def delete_tag(self, tag: str):
         return self.delete_tags([tag])
 
     def delete_tags(self, tags: Iterator[str]):
-        self.assign(self._session.delete_object_tags(self.id, tags))
+        return self.assign(self._session.delete_object_tags(self.id, tags))
 
     def delete(self):
-        self._session.delete_object(self.id)
+        return self._session.delete_object(self.id)
 
     def url(self, *args, **kwargs) -> str:
         """Returns the URL of the object files."""
@@ -228,7 +218,7 @@ class Object(BaseObject):
 
     def store(self, *args, **kwargs):
         """Stores a file or URL as the object's content."""
-        self._session.store_object(self.id, *args, **kwargs)
+        return self._session.store_object(self.id, *args, **kwargs)
 
 
 class EditableObject(BaseObject):
