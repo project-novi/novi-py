@@ -160,7 +160,6 @@ def new_session(**kwargs) -> Session:
 
 def wrap_session(
     wrap_object: bool = True,
-    append_session: bool = True,
     lock: bool | None = None,
 ):
     def decorator(func):
@@ -177,7 +176,7 @@ def wrap_session(
                     args = [wrap(arg) for arg in args]
                     kwargs = {k: wrap(v) for k, v in kwargs.items()}
 
-                if append_session:
+                if 'session' in inspect.getfullargspec(func).args:
                     kwargs['session'] = session
 
                 return func(*args, **kwargs)
