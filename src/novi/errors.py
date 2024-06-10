@@ -16,6 +16,7 @@ lg = get_logger()
 def _error_dict():
     return {
         'Unspecified': NoviError,
+        'Unsupported': UnsupportedError,
         'DBError': DBError,
         'IOError': IOError,
         'PermissionDenied': PermissionDeniedError,
@@ -119,6 +120,10 @@ class DBError(NoviError):
 
 
 class IOError(NoviError):
+    pass
+
+
+class UnsupportedError(NoviError):
     pass
 
 
