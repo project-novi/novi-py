@@ -7,7 +7,6 @@ from functools import wraps
 
 from .proto import novi_pb2
 
-from typing import Dict, Optional
 
 _METADATA_KEYS = {'argument', 'permission', 'id', 'tag', 'type'}
 
@@ -61,9 +60,9 @@ def handle_error(func):
 
 
 class NoviError(Exception):
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
 
-    def __init__(self, message: str, metadata: Dict[str, str] = {}):
+    def __init__(self, message: str, metadata: dict[str, str] = {}):
         self.metadata = metadata
         super().__init__(message)
 
@@ -103,7 +102,7 @@ class NoviError(Exception):
         )
 
     @staticmethod
-    def current(message: Optional[str] = None) -> 'NoviError':
+    def current(message: str | None = None) -> 'NoviError':
         if message is not None:
             lg.exception(message)
         exc_info = sys.exc_info()

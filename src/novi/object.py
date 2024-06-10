@@ -7,14 +7,8 @@ from .misc import uuid_from_pb, dt_from_timestamp, rfc3339
 from .model import TagDict, TagValue, Tags
 from .proto import novi_pb2
 
-from typing import (
-    BinaryIO,
-    ClassVar,
-    Iterator,
-    Optional,
-    Set,
-    TYPE_CHECKING,
-)
+from collections.abc import Iterator
+from typing import BinaryIO, ClassVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .session import Session
@@ -24,8 +18,8 @@ class ObjectFormat:
     FULL: ClassVar['ObjectFormat']
     BRIEF: ClassVar['ObjectFormat']
 
-    fields: Set[str]
-    tags: Optional[bool]
+    fields: set[str]
+    tags: bool | None
 
     def __init__(self, fmt: str):
         self.fields = set()
@@ -70,7 +64,7 @@ def _format_tags(tag_dict: TagDict) -> str:
 class BaseObject:
     id: UUID
     tags: TagDict
-    creator: Optional[UUID]
+    creator: UUID | None
     created: datetime
     updated: datetime
 
@@ -146,7 +140,7 @@ class BaseObject:
         obj._session = session
         return obj
 
-    def __getitem__(self, tag: str) -> Optional[str]:
+    def __getitem__(self, tag: str) -> str | None:
         return self.tags[tag].value
 
     def has(self, tag: str) -> bool:
@@ -178,13 +172,13 @@ class Object(BaseObject):
         obj._session = session
         return obj
 
-    def set(self, tag: str, value: Optional[str] = None):
+    def set(self, tag: str, value: str | None = None):
         return self.assign(self._session.update_object(self.id, {tag: value}))
 
     def update(self, tags: Tags):
         return self.assign(self._session.update_object(self.id, tags))
 
-    def replace(self, tags: Tags, scopes: Optional[Tags] = None):
+    def replace(self, tags: Tags, scopes: Tags | None = None):
         return self.assign(self._session.replace_object(self.id, tags, scopes))
 
     def delete_tag(self, tag: str):

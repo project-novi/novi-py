@@ -1,8 +1,7 @@
 from .errors import InvalidStateError
 
-from typing import Optional
 
-_ipfs_gateway: Optional[str] = None
+_ipfs_gateway: str | None = None
 
 
 def set_ipfs_gateway(gateway: str):

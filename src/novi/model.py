@@ -2,17 +2,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
 class TagValue:
-    value: Optional[str]
+    value: str | None
     updated: datetime
 
 
-Tags = Dict[str, Optional[str]]
-TagDict = Dict[str, TagValue]
+Tags = dict[str, str | None]
+TagDict = dict[str, TagValue]
 
 
 class QueryOrder(Enum):
@@ -52,5 +52,5 @@ class HookAction:
         return HookAction(update_args=False, result_or_args=result)
 
     @staticmethod
-    def update_arguments(args: Dict[str, Any]):
+    def update_arguments(args: dict[str, Any]):
         return HookAction(update_args=True, result_or_args=args)

@@ -5,7 +5,7 @@ from ..identity import Identity
 from ..proto import novi_pb2, novi_pb2_grpc
 from .session import Session
 
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
 
 
 class Client:
@@ -21,7 +21,7 @@ class Client:
 
     @handle_error
     async def session(
-        self, identity: Optional[Identity] = None, lock: Optional[bool] = None
+        self, identity: Identity | None = None, lock: bool | None = None
     ) -> Session:
         gen = self._stub.NewSession(
             novi_pb2.NewSessionRequest(lock=lock),
@@ -44,9 +44,7 @@ class Client:
         return session
 
     @handle_error
-    def temporary_session(
-        self, identity: Optional[Identity] = None
-    ) -> Session:
+    def temporary_session(self, identity: Identity | None = None) -> Session:
         session = Session(self, None)
         session.identity = identity
         return session
@@ -64,7 +62,7 @@ class Client:
     async def check_permission(
         self,
         identity: Identity,
-        permission: Union[str, Iterable[str]],
+        permission: str | Iterable[str],
         bail: bool = True,
     ) -> bool:
         if isinstance(permission, str):

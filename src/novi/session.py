@@ -12,31 +12,56 @@ from uuid import UUID
 
 from .errors import NoviError, handle_error
 from .identity import Identity
-from .misc import uuid_to_pb, dt_to_timestamp, tags_to_pb
+from .misc import (
+    uuid_to_pb,
+    dt_to_timestamp,
+    tags_to_pb,
+    use_signature_with_return,
+)
 from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
 from .object import BaseObject, Object, EditableObject
 from .proto import novi_pb2
 
+from collections.abc import Callable, Iterator
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
+    Concatenate,
     Optional,
-    Set,
-    Tuple,
-    Union,
+    ParamSpec,
+    TypeVar,
     TYPE_CHECKING,
 )
 
 if TYPE_CHECKING:
     from .client import Client
 
+S = TypeVar('S')
+P = ParamSpec('P')
+
 
 def _queue_as_gen(q: Queue):
     while True:
         yield q.get()
+
+
+def _try_transform(value, transform):
+    if inspect.isawaitable(value):
+
+        async def wrapper():
+            return transform(await value)
+
+        return wrapper()
+
+    return transform(value)
+
+
+def _subscribe_signature(f: Callable[Concatenate[S, str, P], Any]) -> Callable[
+    [Callable[..., None]],
+    Callable[
+        Concatenate[S, str, Callable[[BaseObject, EventKind], None], P], None
+    ],
+]:
+    return lambda _: _
 
 
 def _wrap_function(
@@ -51,7 +76,7 @@ def _wrap_function(
     if not wrap:
         return func
 
-    def wrapper(arguments: Dict[str, Any], session: Optional['Session']):
+    def wrapper(arguments: dict[str, Any], session: Optional['Session']):
         if decode_model:
             for arg, ty in func.__annotations__.items():
                 if arg not in arguments:
@@ -85,27 +110,28 @@ def _wrap_function(
             arguments = new_args
 
         resp = func(**arguments)
-
-        if encode_model:
-            resp = TypeAdapter(type(resp)).dump_python(resp, mode='json')
-
-        return resp
+        transform = (
+            (lambda x: TypeAdapter(type(x)).dump_python(x, mode='json'))
+            if encode_model
+            else (lambda x: x)
+        )
+        return _try_transform(resp, transform)
 
     return wrapper
 
 
 class Session:
-    token: Optional[str]
-    identity: Optional[Identity]
+    token: str | None
+    identity: Identity | None
 
     _entered = False
-    _workers: List[Thread]
+    _workers: list[Thread]
 
     def __init__(
         self,
         client: 'Client',
-        token: Optional[str],
-        identity: Optional[Identity] = None,
+        token: str | None,
+        identity: Identity | None = None,
     ):
         self.client = client
         self.token = token
@@ -116,13 +142,16 @@ class Session:
     def _new_object(self, pb: novi_pb2.Object):
         return Object.from_pb(pb, self)
 
-    def _send(self, fn, request, map_result=None):
+    def _build_metadata(self):
         metadata = []
         if self.token:
             metadata.append(('session', self.token))
         if self.identity:
             metadata.append(('identity', self.identity.token))
-        result = fn(request, metadata=metadata)
+        return metadata
+
+    def _send(self, fn, request, map_result=None):
+        result = fn(request, metadata=self._build_metadata())
         if map_result:
             return map_result(result)
         return result
@@ -147,6 +176,15 @@ class Session:
             lambda _: None,
         )
 
+    def _spawn_worker(self, target, **kwargs):
+        worker = Thread(target=target, **kwargs)
+        self._workers.append(worker)
+        worker.start()
+
+    def join(self):
+        for worker in self._workers:
+            worker.join()
+
     @contextmanager
     def use_identity(self, identity: Identity):
         old_identity = self.identity
@@ -157,9 +195,7 @@ class Session:
             self.identity = old_identity
 
     @handle_error
-    def login_as(
-        self, user: Union[UUID, str], temporary: bool = False
-    ) -> Identity:
+    def login_as(self, user: UUID | str, temporary: bool = False) -> Identity:
         if isinstance(user, str):
             user = UUID(user)
 
@@ -180,7 +216,7 @@ class Session:
         )
 
     @handle_error
-    def get_object(self, id: Union[UUID, str]) -> Object:
+    def get_object(self, id: UUID | str) -> Object:
         if isinstance(id, str):
             id = UUID(id)
 
@@ -192,7 +228,7 @@ class Session:
 
     @handle_error
     def update_object(
-        self, id: Union[UUID, str], tags: Tags, force: bool = False
+        self, id: UUID | str, tags: Tags, force: bool = False
     ) -> Object:
         if isinstance(id, str):
             id = UUID(id)
@@ -208,9 +244,9 @@ class Session:
     @handle_error
     def replace_object(
         self,
-        id: Union[UUID, str],
+        id: UUID | str,
         tags: Tags,
-        scopes: Optional[Set[str]] = None,
+        scopes: set[str] | None = None,
         force: bool = False,
     ) -> Object:
         if isinstance(id, str):
@@ -231,7 +267,7 @@ class Session:
 
     @handle_error
     def delete_object_tags(
-        self, id: Union[UUID, str], tags: Iterator[str]
+        self, id: UUID | str, tags: Iterator[str]
     ) -> Object:
         if isinstance(id, str):
             id = UUID(id)
@@ -243,7 +279,7 @@ class Session:
         )
 
     @handle_error
-    def delete_object(self, id: Union[UUID, str]):
+    def delete_object(self, id: UUID | str):
         if isinstance(id, str):
             id = UUID(id)
 
@@ -257,15 +293,15 @@ class Session:
     def query(
         self,
         filter: str,
-        checkpoint: Optional[datetime] = None,
-        updated_after: Optional[datetime] = None,
-        updated_before: Optional[datetime] = None,
-        created_after: Optional[datetime] = None,
-        created_before: Optional[datetime] = None,
+        checkpoint: datetime | None = None,
+        updated_after: datetime | None = None,
+        updated_before: datetime | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
         order: QueryOrder = QueryOrder.CREATED_DESC,
-        limit: Optional[int] = 30,
-    ) -> List[Object]:
-        def to_timestamp(dt: Optional[datetime]):
+        limit: int | None = 30,
+    ) -> list[Object]:
+        def to_timestamp(dt: datetime | None):
             return None if dt is None else dt_to_timestamp(dt)
 
         return self._send(
@@ -283,32 +319,23 @@ class Session:
             lambda reply: [self._new_object(obj) for obj in reply.objects],
         )
 
-    def query_one(self, filter: str, **kwargs) -> Optional[Object]:
-        objects = self.query(filter, limit=1, **kwargs)
-        if objects:
-            return objects[0]
-        return None
+    def query_one(self, filter: str, **kwargs) -> Object | None:
+        return _try_transform(
+            self.query(filter, limit=1, **kwargs),
+            lambda objects: objects[0] if objects else None,
+        )
 
-    def _spawn_worker(self, target, **kwargs):
-        worker = Thread(target=target, **kwargs)
-        self._workers.append(worker)
-        worker.start()
-
-    def join(self):
-        for worker in self._workers:
-            worker.join()
-
-    def subscribe_stream(
+    def _subscribe(
         self,
         filter: str,
-        checkpoint: Optional[datetime] = None,
-        accept_kinds: Set[EventKind] = {
+        checkpoint: datetime | None = None,
+        accept_kinds: set[EventKind] = {
             EventKind.CREATE,
             EventKind.UPDATE,
             EventKind.DELETE,
         },
-    ) -> Iterator[Tuple[BaseObject, EventKind]]:
-        it = self._send(
+    ) -> Iterator[novi_pb2.SubscribeReply]:
+        return self._send(
             self.client._stub.Subscribe,
             novi_pb2.SubscribeRequest(
                 filter=filter,
@@ -318,6 +345,12 @@ class Session:
                 accept_kinds=[kind.value for kind in accept_kinds],
             ),
         )
+
+    @use_signature_with_return(
+        _subscribe, Iterator[tuple[BaseObject, EventKind]]
+    )
+    def subscribe_stream(self, *args, **kwargs):
+        it = self._subscribe(*args, **kwargs)
         try:
             for event in it:
                 object = self._new_object(event.object)
@@ -327,22 +360,16 @@ class Session:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
+    @_subscribe_signature(_subscribe)
     def subscribe(
         self,
         filter: str,
         callback: Callable[[BaseObject, EventKind], None],
-        checkpoint: Optional[datetime] = None,
-        accept_kinds: Set[EventKind] = {
-            EventKind.CREATE,
-            EventKind.UPDATE,
-            EventKind.DELETE,
-        },
+        **kwargs,
     ):
         def worker():
             try:
-                for object, kind in self.subscribe_stream(
-                    filter, checkpoint, accept_kinds
-                ):
+                for object, kind in self.subscribe_stream(filter, **kwargs):
                     callback(object, kind)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
@@ -490,7 +517,7 @@ class Session:
         self,
         name: str,
         function: Callable,
-        permission: Optional[str] = None,
+        permission: str | None = None,
         **kwargs,
     ):
         function = _wrap_function(function, **kwargs)
@@ -543,8 +570,8 @@ class Session:
     def call_function(
         self,
         name: str,
-        arguments: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
         return self._send(
             self.client._stub.CallFunction,
             novi_pb2.CallFunctionRequest(
@@ -555,7 +582,7 @@ class Session:
 
     def get_object_url(
         self,
-        id: Union[UUID, str],
+        id: UUID | str,
         variant: str = 'original',
         resolve_ipfs: bool = True,
     ) -> str:
@@ -581,9 +608,9 @@ class Session:
 
     def store_object(
         self,
-        id: Union[UUID, str],
-        path: Optional[Union[Path, str]] = None,
-        url: Optional[str] = None,
+        id: UUID | str,
+        path: Path | str | None = None,
+        url: str | None = None,
         variant: str = 'original',
         storage: str = 'default',
         overwrite: bool = False,

@@ -7,34 +7,25 @@ import json
 from asyncio import Task, Queue
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pydantic import TypeAdapter
 from uuid import UUID
 
 from ..errors import NoviError, handle_error
 from ..identity import Identity
-from ..misc import dt_to_timestamp
+from ..misc import use_signature_as_coro, use_signature_with_return
 from ..model import EventKind, HookAction, HookPoint
 from ..object import BaseObject, EditableObject
 from ..proto import novi_pb2
-from ..session import Session as SyncSession
+from ..session import Session as SyncSession, _wrap_function
 from .object import Object
 
-from typing import (
-    Any,
-    AsyncIterator,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-    TYPE_CHECKING,
-)
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import ParamSpec, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .client import Client
+
+P = ParamSpec('P')
+R = TypeVar('R')
 
 
 async def _queue_as_gen(q: Queue):
@@ -42,69 +33,14 @@ async def _queue_as_gen(q: Queue):
         yield await q.get()
 
 
-def _wrap_function(
-    func,
-    wrap: bool = True,
-    decode_model: bool = True,
-    encode_model: bool = True,
-    check_type: bool = True,
-    pass_session: bool = True,
-    filter_arguments: bool = True,
-):
-    if not wrap:
-        return func
-
-    def wrapper(arguments: Dict[str, Any], session: Optional['Session']):
-        if decode_model:
-            for arg, ty in func.__annotations__.items():
-                if arg not in arguments:
-                    continue
-
-                val = arguments[arg]
-                if not isinstance(val, ty):
-                    continue
-                arguments[arg] = TypeAdapter(ty).validate_python(val)
-
-        if check_type:
-            for arg in inspect.getfullargspec(func)[0]:
-                if arg not in arguments:
-                    continue
-
-                val = arguments[arg]
-                ty = func.__annotations__.get(arg, None)
-                if ty and not isinstance(val, ty):
-                    raise TypeError(
-                        f'expected {ty} for argument {arg!r}, got {type(val)}'
-                    )
-
-        if pass_session:
-            arguments['session'] = session
-
-        if filter_arguments:
-            new_args = {}
-            for arg in inspect.getfullargspec(func)[0]:
-                if arg in arguments:
-                    new_args[arg] = arguments[arg]
-            arguments = new_args
-
-        resp = func(**arguments)
-
-        if encode_model:
-            resp = TypeAdapter(type(resp)).dump_python(resp, mode='json')
-
-        return resp
-
-    return wrapper
-
-
 class Session(SyncSession):
-    _tasks: List[Task]
+    _tasks: list[Task]
 
     def __init__(
         self,
         client: 'Client',
-        token: Optional[str],
-        identity: Optional[Identity] = None,
+        token: str | None,
+        identity: Identity | None = None,
     ):
         super().__init__(client, token, identity)
         self._tasks = []
@@ -113,12 +49,7 @@ class Session(SyncSession):
         return Object.from_pb(pb, self)
 
     async def _send(self, fn, request, map_result=None):
-        metadata = []
-        if self.token:
-            metadata.append(('session', self.token))
-        if self.identity:
-            metadata.append(('identity', self.identity.token))
-        result = await fn(request, metadata=metadata)
+        result = await fn(request, metadata=self._build_metadata())
         if map_result:
             return map_result(result)
         return result
@@ -132,14 +63,8 @@ class Session(SyncSession):
     async def __aenter__(self):
         return super().__enter__()
 
-    def __aexit__(self, exc_type, exc_val, exc_tb):
-        return super().__exit__(exc_type, exc_val, exc_tb)
-
-    async def query_one(self, filter: str, **kwargs) -> Optional[Object]:
-        objects = await self.query(filter, limit=1, **kwargs)
-        if objects:
-            return objects[0]
-        return None
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return await super().__exit__(exc_type, exc_val, exc_tb)
 
     def _spawn_task(self, coro):
         task = asyncio.create_task(coro)
@@ -148,26 +73,52 @@ class Session(SyncSession):
     async def join(self):
         await asyncio.gather(*self._tasks)
 
-    async def subscribe_stream(
-        self,
-        filter: str,
-        checkpoint: Optional[datetime] = None,
-        accept_kinds: Set[EventKind] = {
-            EventKind.CREATE,
-            EventKind.UPDATE,
-            EventKind.DELETE,
-        },
-    ) -> AsyncIterator[Tuple[BaseObject, EventKind]]:
-        it = super()._send(
-            self.client._stub.Subscribe,
-            novi_pb2.SubscribeRequest(
-                filter=filter,
-                checkpoint=(
-                    None if checkpoint is None else dt_to_timestamp(checkpoint)
-                ),
-                accept_kinds=[kind.value for kind in accept_kinds],
-            ),
-        )
+    @use_signature_as_coro(SyncSession.end)
+    def end(self, *args, **kwargs):
+        return super().end(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.login_as)
+    def login_as(self, *args, **kwargs):
+        return super().login_as(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.create_object)
+    def create_object(self, *args, **kwargs):
+        return super().create_object(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.get_object)
+    def get_object(self, *args, **kwargs):
+        return super().get_object(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.update_object)
+    def update_object(self, *args, **kwargs):
+        return super().update_object(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.replace_object)
+    def replace_object(self, *args, **kwargs):
+        return super().replace_object(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.delete_object_tags)
+    def delete_object_tags(self, *args, **kwargs):
+        return super().delete_object_tags(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.delete_object)
+    def delete_object(self, *args, **kwargs):
+        return super().delete_object(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.query)
+    def query(self, *args, **kwargs):
+        return super().query(*args, **kwargs)
+
+    @use_signature_as_coro(SyncSession.query_one)
+    def query_one(self, *args, **kwargs):
+        return super().query_one(*args, **kwargs)
+
+    @use_signature_with_return(
+        SyncSession._subscribe,
+        AsyncIterator[tuple[BaseObject, EventKind]],
+    )
+    async def subscribe_stream(self, *args, **kwargs):
+        it = super()._subscribe(*args, **kwargs)
         try:
             async for event in it:
                 object = self._new_object(event.object)
@@ -177,12 +128,13 @@ class Session(SyncSession):
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
+    @use_signature_as_coro(SyncSession.subscribe)
     async def subscribe(
         self,
         filter: str,
         callback: Callable[[BaseObject, EventKind], None],
-        checkpoint: Optional[datetime] = None,
-        accept_kinds: Set[EventKind] = {
+        checkpoint: datetime | None = None,
+        accept_kinds: set[EventKind] = {
             EventKind.CREATE,
             EventKind.UPDATE,
             EventKind.DELETE,
@@ -351,7 +303,7 @@ class Session(SyncSession):
         self,
         name: str,
         function: Callable,
-        permission: Optional[str] = None,
+        permission: str | None = None,
         **kwargs,
     ):
         function = _wrap_function(function, **kwargs)
@@ -402,7 +354,7 @@ class Session(SyncSession):
 
     async def get_object_url(
         self,
-        id: Union[UUID, str],
+        id: UUID | str,
         variant: str = 'original',
         resolve_ipfs: bool = True,
     ) -> str:
@@ -423,7 +375,7 @@ class Session(SyncSession):
     async def open_object(
         self,
         *args,
-        session: Optional[aiohttp.ClientSession] = None,
+        session: aiohttp.ClientSession | None = None,
         **kwargs,
     ) -> AsyncIterator[aiohttp.StreamReader]:
         url = await self.get_object_url(*args, **kwargs)

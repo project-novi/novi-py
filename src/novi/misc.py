@@ -4,6 +4,12 @@ from .proto import novi_pb2
 from datetime import datetime, timezone
 from uuid import UUID
 
+from collections.abc import Callable, Coroutine
+from typing import Any, ParamSpec, TypeVar
+
+P = ParamSpec('P')
+R = TypeVar('R')
+
 
 def dt_to_timestamp(dt: datetime) -> int:
     return int(dt.timestamp()) * 1_000_000 + dt.microsecond
@@ -36,3 +42,24 @@ def tags_to_pb(ts: Tags) -> novi_pb2.Tags:
             properties[tag] = value
 
     return novi_pb2.Tags(tags=tags, properties=properties)
+
+
+def use_signature(f: Callable[P, R]) -> Callable[
+    [Callable[..., R]],
+    Callable[P, R],
+]:
+    return lambda _: _
+
+
+def use_signature_as_coro(f: Callable[P, R]) -> Callable[
+    [Callable[..., R]],
+    Callable[P, Coroutine[Any, Any, R]],
+]:
+    return lambda _: _
+
+
+def use_signature_with_return(f: Callable[P, Any], ret: type[R]) -> Callable[
+    [Callable[..., Any]],
+    Callable[P, R],
+]:
+    return lambda _: _

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from novi import BaseObject, Client, Identity, HookPoint, Session
 
-from typing import Optional, Type, TypeVar
+from typing import TypeVar
 
 _min_utc = datetime.min.replace(tzinfo=timezone.utc)
 
@@ -25,7 +25,7 @@ class _State:
     session: Session
 
     plugin_dir: Path
-    config_template: Optional[Path]
+    config_template: Path | None
 
     def __init__(self):
         self.initialized = False
@@ -42,7 +42,7 @@ def initialize(
     server: str,
     identity: str,
     plugin_dir: Path,
-    config_template: Optional[Path],
+    config_template: Path | None,
 ):
     _state.client = Client(
         grpc.insecure_channel(
@@ -102,7 +102,7 @@ def get_config_template_file() -> Path:
     return _state.config_template
 
 
-def load_config(model: Type[T]) -> T:
+def load_config(model: type[T]) -> T:
     config = {}
 
     try:
@@ -138,7 +138,7 @@ def new_session(**kwargs) -> Session:
 def wrap_session(
     wrap_object: bool = True,
     append_session: bool = True,
-    lock: Optional[bool] = None,
+    lock: bool | None = None,
 ):
     def decorator(func):
         @wraps(func)
