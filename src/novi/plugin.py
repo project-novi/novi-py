@@ -1,6 +1,7 @@
 import grpc
 import inspect
 import shelve
+import structlog
 import yaml
 
 from datetime import datetime, timezone
@@ -20,6 +21,8 @@ T = TypeVar('T', bound=BaseModel)
 
 class _State:
     initialized: bool
+
+    identifier: str
 
     server: str
     client: Client
@@ -42,11 +45,13 @@ _state = _State()
 
 
 def initialize(
+    identifier: str,
     server: str,
     identity: str,
     plugin_dir: Path,
     config_template: Path | None,
 ):
+    _state.identifier = identifier
     _state.server = server
 
     _state.client = Client(
@@ -222,3 +227,8 @@ def function(name: str, **kwargs):
         return cb
 
     return decorator
+
+
+def get_logger():
+    _state.ensure_init()
+    return structlog.get_logger(_state.identifier)
