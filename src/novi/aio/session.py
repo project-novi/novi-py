@@ -10,13 +10,13 @@ from datetime import datetime
 from ..errors import NoviError, handle_error
 from ..identity import Identity
 from ..misc import mock_as_coro, mock_with_return
-from ..model import EventKind, HookPoint
+from ..model import EventKind
 from ..object import BaseObject
 from ..proto import novi_pb2
-from ..session import Session as SyncSession, _wrap_function
+from ..session import Session as SyncSession
 from .object import Object
 
-from collections.abc import AsyncIterator, Callable, Coroutine, Iterator
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, ParamSpec, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -163,22 +163,20 @@ class Session(SyncSession):
         self._spawn_task(worker())
 
     @handle_error
-    async def register_core_hook(
-        self, point: HookPoint, filter: str, callback: Callable
-    ):
+    async def _bidi_register(self, fn, init, callback: Callable):
         q = Queue()
-        await q.put(self._core_hook_init(point, filter))
+        await q.put(init)
 
-        reply_stream: AsyncIterator[novi_pb2.RegCoreHookReply] = super()._send(
-            self.client._stub.RegisterCoreHook, _queue_as_gen(q)
-        )
+        reply_stream = super()._send(fn, _queue_as_gen(q))
+        await reply_stream.read()
 
         async def worker():
             try:
-                async for reply in reply_stream:
-                    resp = self._core_hook_call(callback, reply)
+                while True:
+                    reply = await reply_stream.read()
+                    resp = callback(reply)
                     if inspect.isawaitable(resp):
-                        resp = await resp
+                        await resp
 
                     await q.put(resp)
             except grpc.RpcError as e:
@@ -187,60 +185,17 @@ class Session(SyncSession):
 
         self._spawn_task(worker())
 
-    @handle_error
-    async def register_hook(
-        self, function: str, before: bool, callback: Callable
-    ):
-        q = Queue()
-        await q.put(self._hook_init(function, before))
+    @mock_as_coro(SyncSession.register_core_hook)
+    def register_core_hook(self, *args, **kwargs):
+        return super().register_core_hook(*args, **kwargs)
 
-        reply_stream: Iterator[novi_pb2.RegHookReply] = super()._send(
-            self.client._stub.RegisterHook, _queue_as_gen(q)
-        )
+    @mock_as_coro(SyncSession.register_hook)
+    def register_hook(self, *args, **kwargs):
+        return super().register_hook(*args, **kwargs)
 
-        async def worker():
-            try:
-                async for reply in reply_stream:
-                    resp = self._hook_call(callback, reply)
-                    if inspect.isawaitable(resp):
-                        resp = await resp
-
-                    await q.put(resp)
-            except grpc.RpcError as e:
-                if e.code() != grpc.StatusCode.CANCELLED:
-                    raise NoviError.from_grpc(e) from None
-
-        self._spawn_task(worker())
-
-    @handle_error
-    async def register_function(
-        self,
-        name: str,
-        function: Callable,
-        permission: str | None = None,
-        **kwargs,
-    ):
-        function = _wrap_function(function, **kwargs)
-        q = Queue()
-        await q.put(self._function_init(name, permission))
-
-        reply_stream: Iterator[novi_pb2.RegFunctionReply] = super()._send(
-            self.client._stub.RegisterFunction, _queue_as_gen(q)
-        )
-
-        async def worker():
-            try:
-                async for reply in reply_stream:
-                    resp = self._function_call(function, reply)
-                    if inspect.isawaitable(resp):
-                        resp = await resp
-
-                    await q.put(resp)
-            except grpc.RpcError as e:
-                if e.code() != grpc.StatusCode.CANCELLED:
-                    raise NoviError.from_grpc(e) from None
-
-        self._spawn_task(worker())
+    @mock_as_coro(SyncSession.register_function)
+    def register_function(self, *args, **kwargs):
+        return super().register_function(*args, **kwargs)
 
     @mock_as_coro(SyncSession.get_object_url)
     def get_object_url(self, *args, **kwargs):

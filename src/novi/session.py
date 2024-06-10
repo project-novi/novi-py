@@ -446,26 +446,32 @@ class Session:
             )
 
     @handle_error
-    def register_core_hook(
-        self, point: HookPoint, filter: str, callback: Callable
-    ):
+    def _bidi_register(self, fn, init, callback: Callable):
         q = Queue()
-        q.put(self._core_hook_init(point, filter))
+        q.put(init)
 
-        reply_stream: Iterator[novi_pb2.RegCoreHookReply] = self._send(
-            self.client._stub.RegisterCoreHook, _queue_as_gen(q)
-        )
+        reply_stream = self._send(fn, _queue_as_gen(q))
+        next(reply_stream)
 
         def worker():
             try:
                 for reply in reply_stream:
-                    resp = self._core_hook_call(callback, reply)
+                    resp = callback(reply)
                     q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
         self._spawn_worker(worker)
+
+    def register_core_hook(
+        self, point: HookPoint, filter: str, callback: Callable
+    ):
+        return self._bidi_register(
+            self.client._stub.RegisterCoreHook,
+            self._core_hook_init(point, filter),
+            lambda reply: self._core_hook_call(callback, reply),
+        )
 
     def _hook_init(self, function: str, before: bool):
         return novi_pb2.RegHookRequest(
@@ -525,23 +531,11 @@ class Session:
     def register_hook(
         self, function: str, callback: Callable, before: bool = True
     ):
-        q = Queue()
-        q.put(self._hook_init(function, before))
-
-        reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
-            self.client._stub.RegisterHook, _queue_as_gen(q)
+        return self._bidi_register(
+            self.client._stub.RegisterHook,
+            self._hook_init(function, before),
+            lambda reply: self._hook_call(callback, reply),
         )
-
-        def worker():
-            try:
-                for reply in reply_stream:
-                    resp = self._hook_call(callback, reply)
-                    q.put(resp)
-            except grpc.RpcError as e:
-                if e.code() != grpc.StatusCode.CANCELLED:
-                    raise NoviError.from_grpc(e) from None
-
-        self._spawn_worker(worker)
 
     def _function_init(self, name: str, permission: str | None):
         return novi_pb2.RegFunctionRequest(
@@ -587,23 +581,11 @@ class Session:
         **kwargs,
     ):
         function = _wrap_function(function, **kwargs)
-        q = Queue()
-        q.put(self._function_init(name, permission))
-
-        reply_stream: Iterator[novi_pb2.RegFunctionReply] = self._send(
-            self.client._stub.RegisterFunction, _queue_as_gen(q)
+        return self._bidi_register(
+            self.client._stub.RegisterFunction,
+            self._function_init(name, permission),
+            lambda reply: self._function_call(function, reply),
         )
-
-        def worker():
-            try:
-                for reply in reply_stream:
-                    resp = self._function_call(function, reply)
-                    q.put(resp)
-            except grpc.RpcError as e:
-                if e.code() != grpc.StatusCode.CANCELLED:
-                    raise NoviError.from_grpc(e) from None
-
-        self._spawn_worker(worker)
 
     @handle_error
     def call_function(
