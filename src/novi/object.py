@@ -8,10 +8,20 @@ from .model import TagDict, TagValue, Tags
 from .proto import novi_pb2
 
 from collections.abc import Iterator
-from typing import BinaryIO, ClassVar, TYPE_CHECKING
+from typing import (
+    BinaryIO,
+    ClassVar,
+    ParamSpec,
+    TypeVar,
+    TYPE_CHECKING,
+)
+from typing_extensions import Unpack
 
 if TYPE_CHECKING:
-    from .session import Session
+    from .session import Session, ObjectUrlOptions, StoreObjectOptions
+
+P = ParamSpec('P')
+R = TypeVar('R')
 
 
 class ObjectFormat:
@@ -190,29 +200,31 @@ class Object(BaseObject):
     def delete(self):
         return self._session.delete_object(self.id)
 
-    def url(self, *args, **kwargs) -> str:
+    def url(self, **kwargs: Unpack['ObjectUrlOptions']) -> str:
         """Returns the URL of the object files."""
-        return self._session.get_object_url(self.id, *args, **kwargs)
+        return self._session.get_object_url(self.id, **kwargs)
 
-    def open(self, *args, **kwargs) -> BinaryIO:
+    def open(self, **kwargs: Unpack['ObjectUrlOptions']) -> BinaryIO:
         """Opens the object as a file-like object."""
-        return self._session.open_object(self.id, *args, **kwargs)
+        return self._session.open_object(self.id, **kwargs)
 
-    def read_text(self, encoding: str = 'utf-8', **kwargs) -> str:
+    def read_text(
+        self, *, encoding: str = 'utf-8', **kwargs: Unpack['ObjectUrlOptions']
+    ) -> str:
         """Reads the object's content as text."""
 
         with self.open(**kwargs) as f:
             return f.read().decode(encoding=encoding)
 
-    def read_bytes(self, **kwargs) -> bytes:
+    def read_bytes(self, **kwargs: Unpack['ObjectUrlOptions']) -> bytes:
         """Reads the object's content as bytes."""
 
         with self.open(**kwargs) as f:
             return f.read()
 
-    def store(self, *args, **kwargs):
+    def store(self, **kwargs: Unpack['StoreObjectOptions']):
         """Stores a file or URL as the object's content."""
-        return self._session.store_object(self.id, *args, **kwargs)
+        return self._session.store_object(self.id, **kwargs)
 
 
 class EditableObject(BaseObject):

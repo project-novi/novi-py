@@ -44,21 +44,21 @@ def tags_to_pb(ts: Tags) -> novi_pb2.Tags:
     return novi_pb2.Tags(tags=tags, properties=properties)
 
 
-def use_signature(f: Callable[P, R]) -> Callable[
+def mock(f: Callable[P, R]) -> Callable[
     [Callable[..., R]],
     Callable[P, R],
 ]:
     return lambda _: _
 
 
-def use_signature_as_coro(f: Callable[P, R]) -> Callable[
+def mock_as_coro(f: Callable[P, R]) -> Callable[
     [Callable[..., R]],
     Callable[P, Coroutine[Any, Any, R]],
 ]:
     return lambda _: _
 
 
-def use_signature_with_return(f: Callable[P, Any], ret: type[R]) -> Callable[
+def mock_with_return(f: Callable[P, Any], ret: type[R]) -> Callable[
     [Callable[..., Any]],
     Callable[P, R],
 ]:

@@ -16,7 +16,7 @@ from .misc import (
     uuid_to_pb,
     dt_to_timestamp,
     tags_to_pb,
-    use_signature_with_return,
+    mock_with_return,
 )
 from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
 from .object import BaseObject, Object, EditableObject
@@ -25,15 +25,32 @@ from .proto import novi_pb2
 from collections.abc import Callable, Iterator
 from typing import (
     Any,
+    BinaryIO,
     Concatenate,
     Optional,
     ParamSpec,
+    TypedDict,
     TypeVar,
     TYPE_CHECKING,
 )
 
 if TYPE_CHECKING:
     from .client import Client
+
+
+class ObjectUrlOptions(TypedDict, total=False):
+    variant: str
+    resolve_ipfs: bool
+
+
+class StoreObjectOptions(TypedDict, total=False):
+    path: Path | str | None
+    url: str | None
+
+    variant: str
+    storage: str
+    overwrite: bool
+
 
 S = TypeVar('S')
 P = ParamSpec('P')
@@ -44,7 +61,7 @@ def _queue_as_gen(q: Queue):
         yield q.get()
 
 
-def _try_transform(value, transform):
+def _auto_transform(value, transform):
     if inspect.isawaitable(value):
 
         async def wrapper():
@@ -55,7 +72,7 @@ def _try_transform(value, transform):
     return transform(value)
 
 
-def _subscribe_signature(f: Callable[Concatenate[S, str, P], Any]) -> Callable[
+def _mock_subscribe(f: Callable[Concatenate[S, str, P], Any]) -> Callable[
     [Callable[..., None]],
     Callable[
         Concatenate[S, str, Callable[[BaseObject, EventKind], None], P], None
@@ -115,7 +132,7 @@ def _wrap_function(
             if encode_model
             else (lambda x: x)
         )
-        return _try_transform(resp, transform)
+        return _auto_transform(resp, transform)
 
     return wrapper
 
@@ -186,7 +203,7 @@ class Session:
             worker.join()
 
     @contextmanager
-    def use_identity(self, identity: Identity):
+    def fidentity(self, identity: Identity):
         old_identity = self.identity
         self.identity = identity
         try:
@@ -320,7 +337,7 @@ class Session:
         )
 
     def query_one(self, filter: str, **kwargs) -> Object | None:
-        return _try_transform(
+        return _auto_transform(
             self.query(filter, limit=1, **kwargs),
             lambda objects: objects[0] if objects else None,
         )
@@ -346,9 +363,7 @@ class Session:
             ),
         )
 
-    @use_signature_with_return(
-        _subscribe, Iterator[tuple[BaseObject, EventKind]]
-    )
+    @mock_with_return(_subscribe, Iterator[tuple[BaseObject, EventKind]])
     def subscribe_stream(self, *args, **kwargs):
         it = self._subscribe(*args, **kwargs)
         try:
@@ -360,7 +375,7 @@ class Session:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
-    @_subscribe_signature(_subscribe)
+    @_mock_subscribe(_subscribe)
     def subscribe(
         self,
         filter: str,
@@ -377,19 +392,65 @@ class Session:
 
         self._spawn_worker(worker)
 
+    def _core_hook_init(self, point: HookPoint, filter: str):
+        return novi_pb2.RegCoreHookRequest(
+            initiate=novi_pb2.RegCoreHookRequest.Initiate(
+                point=point.value,
+                filter=filter,
+            )
+        )
+
+    def _core_hook_call(
+        self, callback: Callable, reply: novi_pb2.RegCoreHookReply
+    ):
+        try:
+            object = EditableObject.from_pb(reply.object)
+            old_object = (
+                EditableObject.from_pb(reply.old_object)
+                if reply.HasField('old_object')
+                else None
+            )
+            session = (
+                type(self)(self.client, reply.session)
+                if reply.HasField('session')
+                else None
+            )
+            identity = Identity(reply.identity)
+            if session is not None:
+                session.identity = identity
+            resp = callback(
+                object=object,
+                old_object=old_object,
+                session=session,
+                identity=identity,
+            )
+            # TODO: ObjectEdits
+            return _auto_transform(
+                resp,
+                lambda x: novi_pb2.RegCoreHookRequest(
+                    result=novi_pb2.RegCoreHookRequest.CallResult(
+                        call_id=reply.call_id,
+                        response=novi_pb2.ObjectEdits(
+                            deletes=[], update={}, clear=False
+                        ),
+                    )
+                ),
+            )
+        except Exception:
+            error = NoviError.current('error in core hook callback')
+            return novi_pb2.RegCoreHookRequest(
+                result=novi_pb2.RegCoreHookRequest.CallResult(
+                    call_id=reply.call_id,
+                    error=error.to_pb(),
+                )
+            )
+
     @handle_error
     def register_core_hook(
         self, point: HookPoint, filter: str, callback: Callable
     ):
         q = Queue()
-        q.put(
-            novi_pb2.RegCoreHookRequest(
-                initiate=novi_pb2.RegCoreHookRequest.Initiate(
-                    point=point.value,
-                    filter=filter,
-                )
-            )
-        )
+        q.put(self._core_hook_init(point, filter))
 
         reply_stream: Iterator[novi_pb2.RegCoreHookReply] = self._send(
             self.client._stub.RegisterCoreHook, _queue_as_gen(q)
@@ -398,47 +459,7 @@ class Session:
         def worker():
             try:
                 for reply in reply_stream:
-                    try:
-                        object = EditableObject.from_pb(reply.object)
-                        old_object = (
-                            EditableObject.from_pb(reply.old_object)
-                            if reply.HasField('old_object')
-                            else None
-                        )
-                        session = (
-                            Session(self.client, reply.session)
-                            if reply.HasField('session')
-                            else None
-                        )
-                        identity = Identity(reply.identity)
-                        if session is not None:
-                            session.identity = identity
-                        resp = callback(
-                            object=object,
-                            old_object=old_object,
-                            session=session,
-                            identity=identity,
-                        )
-                        # TODO: ObjectEdits
-                        resp = novi_pb2.RegCoreHookRequest(
-                            result=novi_pb2.RegCoreHookRequest.CallResult(
-                                call_id=reply.call_id,
-                                response=novi_pb2.ObjectEdits(
-                                    deletes=[], update={}, clear=False
-                                ),
-                            )
-                        )
-                    except Exception:
-                        error = NoviError.current(
-                            'error in core hook callback'
-                        )
-                        resp = novi_pb2.RegCoreHookRequest(
-                            result=novi_pb2.RegCoreHookRequest.CallResult(
-                                call_id=reply.call_id,
-                                error=error.to_pb(),
-                            )
-                        )
-
+                    resp = self._core_hook_call(callback, reply)
                     q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
@@ -446,17 +467,66 @@ class Session:
 
         self._spawn_worker(worker)
 
-    @handle_error
-    def register_hook(self, function: str, before: bool, callback: Callable):
-        q = Queue()
-        q.put(
-            novi_pb2.RegHookRequest(
-                initiate=novi_pb2.RegHookRequest.Initiate(
-                    function=function,
-                    before=before,
-                )
+    def _hook_init(self, function: str, before: bool):
+        return novi_pb2.RegHookRequest(
+            initiate=novi_pb2.RegHookRequest.Initiate(
+                function=function,
+                before=before,
             )
         )
+
+    def _hook_call(self, callback: Callable, reply: novi_pb2.RegHookReply):
+        try:
+            session = type(self)(self.client, reply.session)
+            session.identity = Identity(reply.identity)
+            original_result = (
+                json.loads(reply.original_result)
+                if reply.HasField('original_result')
+                else None
+            )
+            resp = callback(
+                arguments=json.loads(reply.arguments),
+                original_result=original_result,
+                session=session,
+            )
+
+            def transform(resp):
+                if resp is None:
+                    resp = HookAction.none()
+                assert isinstance(resp, HookAction)
+
+                action_pb = novi_pb2.HookAction(
+                    update_args=resp.update_args,
+                    result_or_args=(
+                        None
+                        if resp.result_or_args is None
+                        else json.dumps(resp.result_or_args)
+                    ),
+                )
+                return novi_pb2.RegHookRequest(
+                    result=novi_pb2.RegHookRequest.CallResult(
+                        call_id=reply.call_id,
+                        response=action_pb,
+                    )
+                )
+
+            return _auto_transform(resp, transform)
+
+        except Exception:
+            error = NoviError.current('error in hook callback')
+            return novi_pb2.RegHookRequest(
+                result=novi_pb2.RegHookRequest.CallResult(
+                    call_id=reply.call_id,
+                    error=error.to_pb(),
+                )
+            )
+
+    @handle_error
+    def register_hook(
+        self, function: str, callback: Callable, before: bool = True
+    ):
+        q = Queue()
+        q.put(self._hook_init(function, before))
 
         reply_stream: Iterator[novi_pb2.RegHookReply] = self._send(
             self.client._stub.RegisterHook, _queue_as_gen(q)
@@ -465,52 +535,48 @@ class Session:
         def worker():
             try:
                 for reply in reply_stream:
-                    try:
-                        session = Session(self.client, reply.session)
-                        session.identity = Identity(reply.identity)
-                        original_result = (
-                            json.loads(reply.original_result)
-                            if reply.HasField('original_result')
-                            else None
-                        )
-                        resp = callback(
-                            arguments=json.loads(reply.arguments),
-                            original_result=original_result,
-                            session=session,
-                        )
-                        if resp is None:
-                            resp = HookAction.none()
-                        assert isinstance(resp, HookAction)
-
-                        action_pb = novi_pb2.HookAction(
-                            update_args=resp.update_args,
-                            result_or_args=(
-                                None
-                                if resp.result_or_args is None
-                                else json.dumps(resp.result_or_args)
-                            ),
-                        )
-                        resp = novi_pb2.RegHookRequest(
-                            result=novi_pb2.RegHookRequest.CallResult(
-                                call_id=reply.call_id,
-                                response=action_pb,
-                            )
-                        )
-                    except Exception:
-                        error = NoviError.current('error in hook callback')
-                        resp = novi_pb2.RegHookRequest(
-                            result=novi_pb2.RegHookRequest.CallResult(
-                                call_id=reply.call_id,
-                                error=error.to_pb(),
-                            )
-                        )
-
+                    resp = self._hook_call(callback, reply)
                     q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
 
         self._spawn_worker(worker)
+
+    def _function_init(self, name: str, permission: str | None):
+        return novi_pb2.RegFunctionRequest(
+            initiate=novi_pb2.RegFunctionRequest.Initiate(
+                name=name, permission=permission
+            )
+        )
+
+    def _function_call(
+        self, callback: Callable, reply: novi_pb2.RegFunctionReply
+    ):
+        try:
+            session = type(self)(self.client, reply.session)
+            session.identity = Identity(reply.identity)
+            resp = callback(
+                arguments=json.loads(reply.arguments),
+                session=session,
+            )
+            return _auto_transform(
+                resp,
+                lambda x: novi_pb2.RegFunctionRequest(
+                    result=novi_pb2.RegFunctionRequest.CallResult(
+                        call_id=reply.call_id,
+                        response='{}' if x is None else json.dumps(x),
+                    )
+                ),
+            )
+        except Exception:
+            error = NoviError.current('error in function call')
+            return novi_pb2.RegFunctionRequest(
+                result=novi_pb2.RegFunctionRequest.CallResult(
+                    call_id=reply.call_id,
+                    error=error.to_pb(),
+                )
+            )
 
     @handle_error
     def register_function(
@@ -522,13 +588,7 @@ class Session:
     ):
         function = _wrap_function(function, **kwargs)
         q = Queue()
-        q.put(
-            novi_pb2.RegFunctionRequest(
-                initiate=novi_pb2.RegFunctionRequest.Initiate(
-                    name=name, permission=permission
-                )
-            )
-        )
+        q.put(self._function_init(name, permission))
 
         reply_stream: Iterator[novi_pb2.RegFunctionReply] = self._send(
             self.client._stub.RegisterFunction, _queue_as_gen(q)
@@ -537,28 +597,7 @@ class Session:
         def worker():
             try:
                 for reply in reply_stream:
-                    try:
-                        session = Session(self.client, reply.session)
-                        session.identity = Identity(reply.identity)
-                        resp = function(
-                            arguments=json.loads(reply.arguments),
-                            session=session,
-                        )
-                        resp = novi_pb2.RegFunctionRequest(
-                            result=novi_pb2.RegFunctionRequest.CallResult(
-                                call_id=reply.call_id,
-                                response=json.dumps(resp),
-                            )
-                        )
-                    except Exception:
-                        error = NoviError.current('error in function call')
-                        resp = novi_pb2.RegFunctionRequest(
-                            result=novi_pb2.RegFunctionRequest.CallResult(
-                                call_id=reply.call_id,
-                                error=error.to_pb(),
-                            )
-                        )
-
+                    resp = self._function_call(function, reply)
                     q.put(resp)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
@@ -583,25 +622,29 @@ class Session:
     def get_object_url(
         self,
         id: UUID | str,
+        *,
         variant: str = 'original',
         resolve_ipfs: bool = True,
     ) -> str:
-        url = self.call_function(
-            'file.url',
-            {'id': str(id), 'variant': variant},
-        )['url']
-        if url.startswith('ipfs://') and resolve_ipfs:
-            from .file import get_ipfs_gateway
+        def transform(resp):
+            url = resp['url']
+            if url.startswith('ipfs://') and resolve_ipfs:
+                from .file import get_ipfs_gateway
 
-            url = get_ipfs_gateway() + '/ipfs/' + url[7:]
+                url = get_ipfs_gateway() + '/ipfs/' + url[7:]
 
-        return url
+            return url
 
-    def open_object(
-        self,
-        *args,
-        **kwargs,
-    ):
+        return _auto_transform(
+            self.call_function(
+                'file.url',
+                {'id': str(id), 'variant': variant},
+            ),
+            transform,
+        )
+
+    @mock_with_return(get_object_url, BinaryIO)
+    def open_object(self, *args, **kwargs):
         from urllib.request import urlopen
 
         return urlopen(self.get_object_url(*args, **kwargs))
@@ -614,7 +657,7 @@ class Session:
         variant: str = 'original',
         storage: str = 'default',
         overwrite: bool = False,
-    ):
+    ) -> None:
         """Stores a file or URL as the object's content."""
         args = {
             'id': str(id),
@@ -631,4 +674,7 @@ class Session:
         else:
             raise ValueError('must specify either path or url')
 
-        return self.call_function('file.store', args)
+        return _auto_transform(
+            self.call_function('file.store', args),
+            lambda _: None,
+        )
