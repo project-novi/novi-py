@@ -121,11 +121,14 @@ class Session(SyncSession):
         return super().query_one(*args, **kwargs)
 
     @mock_with_return(
-        SyncSession._subscribe,
+        SyncSession.subscribe_stream,
         AsyncIterator[tuple[BaseObject, EventKind]],
     )
     async def subscribe_stream(self, *args, **kwargs):
-        it = self._subscribe(*args, **kwargs)
+        it = super()._send(
+            self.client._stub.Subscribe,
+            self._subscribe_request(*args, **kwargs),
+        )
         try:
             async for event in it:
                 object = self._new_object(event.object)

@@ -351,7 +351,7 @@ class Session:
             lambda objects: objects[0] if objects else None,
         )
 
-    def _subscribe(
+    def _subscribe_request(
         self,
         filter: str,
         checkpoint: datetime | None = None,
@@ -360,21 +360,23 @@ class Session:
             EventKind.UPDATE,
             EventKind.DELETE,
         },
-    ) -> Iterator[novi_pb2.SubscribeReply]:
-        return self._send(
-            self.client._stub.Subscribe,
-            novi_pb2.SubscribeRequest(
-                filter=filter,
-                checkpoint=(
-                    None if checkpoint is None else dt_to_timestamp(checkpoint)
-                ),
-                accept_kinds=[kind.value for kind in accept_kinds],
+    ):
+        return novi_pb2.SubscribeRequest(
+            filter=filter,
+            checkpoint=(
+                None if checkpoint is None else dt_to_timestamp(checkpoint)
             ),
+            accept_kinds=[kind.value for kind in accept_kinds],
         )
 
-    @mock_with_return(_subscribe, Iterator[tuple[BaseObject, EventKind]])
+    @mock_with_return(
+        _subscribe_request, Iterator[tuple[BaseObject, EventKind]]
+    )
     def subscribe_stream(self, *args, **kwargs):
-        it = self._subscribe(*args, **kwargs)
+        it = self._send(
+            self.client._stub.Subscribe,
+            self._subscribe_request(*args, **kwargs),
+        )
         try:
             for event in it:
                 object = self._new_object(event.object)
@@ -384,7 +386,7 @@ class Session:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
-    @_mock_subscribe(_subscribe)
+    @_mock_subscribe(_subscribe_request)
     def subscribe(
         self,
         filter: str,

@@ -14,8 +14,10 @@ class Client:
 
     @handle_error
     async def login(self, username: str, password: str) -> Identity:
-        token = await self._stub.Login(
-            novi_pb2.LoginRequest(username=username, password=password)
+        token = (
+            await self._stub.Login(
+                novi_pb2.LoginRequest(username=username, password=password)
+            )
         ).identity
         return Identity(token)
 
