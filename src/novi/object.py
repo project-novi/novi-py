@@ -200,31 +200,43 @@ class Object(BaseObject):
     def delete(self):
         return self._session.delete_object(self.id)
 
-    def url(self, **kwargs: Unpack['ObjectUrlOptions']) -> str:
+    def url(
+        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+    ) -> str:
         """Returns the URL of the object files."""
-        return self._session.get_object_url(self.id, **kwargs)
+        return self._session.get_object_url(self.id, variant, **kwargs)
 
-    def open(self, **kwargs: Unpack['ObjectUrlOptions']) -> BinaryIO:
+    def open(
+        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+    ) -> BinaryIO:
         """Opens the object as a file-like object."""
-        return self._session.open_object(self.id, **kwargs)
+        return self._session.open_object(self.id, variant, **kwargs)
 
     def read_text(
-        self, *, encoding: str = 'utf-8', **kwargs: Unpack['ObjectUrlOptions']
+        self,
+        variant: str = 'original',
+        *,
+        encoding: str = 'utf-8',
+        **kwargs: Unpack['ObjectUrlOptions'],
     ) -> str:
         """Reads the object's content as text."""
 
-        with self.open(**kwargs) as f:
+        with self.open(variant, **kwargs) as f:
             return f.read().decode(encoding=encoding)
 
-    def read_bytes(self, **kwargs: Unpack['ObjectUrlOptions']) -> bytes:
+    def read_bytes(
+        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+    ) -> bytes:
         """Reads the object's content as bytes."""
 
-        with self.open(**kwargs) as f:
+        with self.open(variant, **kwargs) as f:
             return f.read()
 
-    def store(self, **kwargs: Unpack['StoreObjectOptions']):
+    def store(
+        self, variant: str = 'original', **kwargs: Unpack['StoreObjectOptions']
+    ):
         """Stores a file or URL as the object's content."""
-        return self._session.store_object(self.id, **kwargs)
+        return self._session.store_object(self.id, variant, **kwargs)
 
 
 class EditableObject(BaseObject):

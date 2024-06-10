@@ -40,33 +40,39 @@ class Object(SyncObject):
         return super().delete(*args, **kwargs)
 
     @mock_as_coro(SyncObject.url)
-    async def url(self, **kwargs):
-        return super().url(**kwargs)
+    async def url(self, *args, **kwargs):
+        return super().url(*args, **kwargs)
 
     @mock_with_return(
         SyncObject.open, _AsyncGeneratorContextManager[aiohttp.StreamReader]
     )
-    def open(self, **kwargs):
-        return super().open(**kwargs)
+    def open(self, *args, **kwargs):
+        return super().open(*args, **kwargs)
 
     async def read_text(
-        self, *, encoding: str = 'utf-8', **kwargs: Unpack['ObjectUrlOptions']
+        self,
+        variant: str = 'original',
+        *,
+        encoding: str = 'utf-8',
+        **kwargs: Unpack['ObjectUrlOptions'],
     ) -> str:
         """Reads the object's content as text."""
 
         result = ''
-        async with self.open(**kwargs) as f:
+        async with self.open(variant, **kwargs) as f:
             async for line in f:
                 result += line.decode(encoding)
 
         return result
 
-    async def read_bytes(self, **kwargs: Unpack['ObjectUrlOptions']) -> bytes:
+    async def read_bytes(
+        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+    ) -> bytes:
         """Reads the object's content as bytes."""
 
-        async with self.open(**kwargs) as f:
+        async with self.open(variant, **kwargs) as f:
             return await f.read()
 
     @mock_as_coro(SyncObject.store)
-    def store(self, **kwargs):
-        return super().store(**kwargs)
+    def store(self, *args, **kwargs):
+        return super().store(*args, **kwargs)

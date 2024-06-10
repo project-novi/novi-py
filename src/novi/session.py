@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 
 
 class ObjectUrlOptions(TypedDict, total=False):
-    variant: str
     resolve_ipfs: bool
 
 
@@ -48,7 +47,6 @@ class StoreObjectOptions(TypedDict, total=False):
     path: Path | str | None
     url: str | None
 
-    variant: str
     storage: str
     overwrite: bool
 
@@ -616,7 +614,6 @@ class Session:
     def get_object_url(
         self,
         id: UUID | str,
-        *,
         variant: str = 'original',
         resolve_ipfs: bool = True,
     ) -> str:
@@ -647,9 +644,10 @@ class Session:
     def store_object(
         self,
         id: UUID | str,
+        variant: str = 'original',
+        *,
         path: Path | str | None = None,
         url: str | None = None,
-        variant: str = 'original',
         storage: str = 'default',
         overwrite: bool = False,
     ) -> None:
