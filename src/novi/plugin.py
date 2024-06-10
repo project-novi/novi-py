@@ -218,6 +218,16 @@ def core_hook(point: HookPoint, filter: str = '*'):
     return decorator
 
 
+def hook(function: str, **kwargs):
+    def decorator(cb):
+        _state.ensure_init()
+        _state.session.register_hook(function, cb, **kwargs)
+
+        return cb
+
+    return decorator
+
+
 def function(name: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
