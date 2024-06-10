@@ -33,6 +33,7 @@ from typing import (
     TypeVar,
     TYPE_CHECKING,
 )
+from typing_extensions import Unpack
 
 if TYPE_CHECKING:
     from .client import Client
@@ -50,6 +51,15 @@ class StoreObjectOptions(TypedDict, total=False):
     variant: str
     storage: str
     overwrite: bool
+
+
+class WrapFunctionOptions(TypedDict, total=False):
+    wrap: bool
+    decode_model: bool
+    encode_model: bool
+    check_type: bool
+    pass_session: bool
+    filter_arguments: bool
 
 
 S = TypeVar('S')
@@ -81,6 +91,7 @@ def _mock_subscribe(f: Callable[Concatenate[S, str, P], Any]) -> Callable[
     return lambda _: _
 
 
+# On edit, please also edit `WrapFunctionOptions`
 def _wrap_function(
     func,
     wrap: bool = True,
@@ -578,7 +589,7 @@ class Session:
         name: str,
         function: Callable,
         permission: str | None = None,
-        **kwargs,
+        **kwargs: Unpack[WrapFunctionOptions],
     ):
         function = _wrap_function(function, **kwargs)
         return self._bidi_register(
@@ -601,6 +612,7 @@ class Session:
             lambda reply: json.loads(reply.result),
         )
 
+    # On edit, please also edit `ObjectUrlOptions`
     def get_object_url(
         self,
         id: UUID | str,
@@ -631,6 +643,7 @@ class Session:
 
         return urlopen(self.get_object_url(*args, **kwargs))
 
+    # On edit, please also edit `StoreObjectOptions`
     def store_object(
         self,
         id: UUID | str,
