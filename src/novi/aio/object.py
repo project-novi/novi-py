@@ -16,31 +16,31 @@ class Object(SyncObject):
         return super().assign(await coro)
 
     @mock_as_coro(SyncObject.set)
-    async def set(self, *args, **kwargs):
+    def set(self, *args, **kwargs):
         return super().set(*args, **kwargs)
 
     @mock_as_coro(SyncObject.update)
-    async def update(self, *args, **kwargs):
+    def update(self, *args, **kwargs):
         return super().update(*args, **kwargs)
 
     @mock_as_coro(SyncObject.replace)
-    async def replace(self, *args, **kwargs):
+    def replace(self, *args, **kwargs):
         return super().replace(*args, **kwargs)
 
     @mock_as_coro(SyncObject.delete_tag)
-    async def delete_tag(self, *args, **kwargs):
+    def delete_tag(self, *args, **kwargs):
         return super().delete_tag(*args, **kwargs)
 
     @mock_as_coro(SyncObject.delete_tags)
-    async def delete_tags(self, *args, **kwargs):
+    def delete_tags(self, *args, **kwargs):
         return super().delete_tags(*args, **kwargs)
 
     @mock_as_coro(SyncObject.delete)
-    async def delete(self, *args, **kwargs):
+    def delete(self, *args, **kwargs):
         return super().delete(*args, **kwargs)
 
     @mock_as_coro(SyncObject.url)
-    async def url(self, *args, **kwargs):
+    def url(self, *args, **kwargs):
         return super().url(*args, **kwargs)
 
     @mock_with_return(
