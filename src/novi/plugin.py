@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from novi import BaseObject, Client, Identity, HookPoint, Session
+from novi.aio import Client as AClient
 
 from typing import TypeVar
 
@@ -20,7 +21,9 @@ T = TypeVar('T', bound=BaseModel)
 class _State:
     initialized: bool
 
+    server: str
     client: Client
+    aclient: AClient | None
     identity: Identity
     session: Session
 
@@ -44,11 +47,15 @@ def initialize(
     plugin_dir: Path,
     config_template: Path | None,
 ):
+    _state.server = server
+
     _state.client = Client(
         grpc.insecure_channel(
-            server, options=(('grpc.default_authority', 'localhost'),)
+            _state.server,
+            options=(('grpc.default_authority', 'localhost'),),
         )
     )
+    _state.aclient = None
     _state.identity = Identity(identity)
     _state.session = _state.client.temporary_session(identity=_state.identity)
 
@@ -125,14 +132,25 @@ def get_client() -> Client:
     return _state.client
 
 
+def get_async_client() -> AClient:
+    _state.ensure_init()
+    if _state.aclient is None:
+        _state.aclient = AClient(
+            grpc.aio.insecure_channel(
+                _state.server,
+                options=(('grpc.default_authority', 'localhost'),),
+            )
+        )
+    return _state.aclient
+
+
 def get_identity() -> Identity:
     _state.ensure_init()
     return _state.identity
 
 
 def new_session(**kwargs) -> Session:
-    _state.ensure_init()
-    return _state.client.session(identity=_state.identity, **kwargs)
+    return get_client().session(identity=_state.identity, **kwargs)
 
 
 def wrap_session(
