@@ -1,3 +1,4 @@
+import asyncio
 import grpc
 import inspect
 import shelve
@@ -33,6 +34,8 @@ class _State:
     plugin_dir: Path
     config_template: Path | None
 
+    tasks: list[asyncio.Task]
+
     def __init__(self):
         self.initialized = False
 
@@ -67,12 +70,24 @@ def initialize(
     _state.plugin_dir = plugin_dir
     _state.config_template = config_template
 
+    _state.tasks = []
+
     _state.initialized = True
 
 
 def join():
     _state.ensure_init()
     _state.session.join()
+
+
+async def ajoin():
+    _state.ensure_init()
+    await asyncio.gather(*_state.tasks)
+
+
+def add_task(task: asyncio.Task):
+    _state.ensure_init()
+    _state.tasks.append(task)
 
 
 def get_plugin_dir() -> Path:
