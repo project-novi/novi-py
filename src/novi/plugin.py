@@ -175,8 +175,9 @@ def new_session(*args, **kwargs) -> Session:
 
 
 def wrap_session(
-    wrap_object: bool = True,
     mode: SessionMode = SessionMode.AUTO,
+    *,
+    wrap_object: bool = True,
 ):
     def decorator(func):
         @wraps(func)
