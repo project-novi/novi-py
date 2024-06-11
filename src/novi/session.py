@@ -5,7 +5,7 @@ import json
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 from queue import Queue
 from threading import Thread
 from uuid import UUID
@@ -27,7 +27,6 @@ from typing import (
     Any,
     BinaryIO,
     Concatenate,
-    Optional,
     ParamSpec,
     TypedDict,
     TypeVar,
@@ -54,9 +53,8 @@ class StoreObjectOptions(TypedDict, total=False):
 class WrapFunctionOptions(TypedDict, total=False):
     wrap: bool
     decode_model: bool
-    encode_model: bool
     check_type: bool
-    pass_session: bool
+    includes: list[str]
     filter_arguments: bool
 
 
@@ -94,15 +92,14 @@ def _wrap_function(
     func,
     wrap: bool = True,
     decode_model: bool = True,
-    encode_model: bool = True,
     check_type: bool = True,
-    pass_session: bool = True,
+    includes: list[str] = ['session', 'original_result'],
     filter_arguments: bool = True,
 ):
     if not wrap:
         return func
 
-    def wrapper(arguments: dict[str, Any], session: Optional['Session']):
+    def wrapper(arguments: dict[str, Any], **kwargs):
         if decode_model:
             for arg, ty in func.__annotations__.items():
                 if arg not in arguments:
@@ -125,8 +122,9 @@ def _wrap_function(
                         f'expected {ty} for argument {arg!r}, got {type(val)}'
                     )
 
-        if pass_session:
-            arguments['session'] = session
+        for include in includes:
+            if include in kwargs:
+                arguments[include] = kwargs[include]
 
         if filter_arguments:
             new_args = {}
@@ -135,13 +133,7 @@ def _wrap_function(
                     new_args[arg] = arguments[arg]
             arguments = new_args
 
-        resp = func(**arguments)
-        transform = (
-            (lambda x: TypeAdapter(type(x)).dump_python(x, mode='json'))
-            if encode_model
-            else (lambda x: x)
-        )
-        return _auto_transform(resp, transform)
+        return func(**arguments)
 
     return wrapper
 
@@ -540,12 +532,32 @@ class Session:
 
     @handle_error
     def register_hook(
-        self, function: str, callback: Callable, before: bool = True
+        self,
+        function: str,
+        callback: Callable,
+        before: bool = True,
+        **kwargs: Unpack[WrapFunctionOptions],
     ):
+        callback = _wrap_function(callback, **kwargs)
+
+        def transform(resp):
+            if resp is None:
+                resp = HookAction.none()
+            elif not isinstance(resp, HookAction):
+                raise TypeError('hook callback must return a HookAction')
+
+            return resp
+
+        def transformed_callback(*args, **kwargs):
+            return _auto_transform(
+                callback(*args, **kwargs),
+                transform,
+            )
+
         return self._bidi_register(
             self.client._stub.RegisterHook,
             self._hook_init(function, before),
-            lambda reply: self._hook_call(callback, reply),
+            lambda reply: self._hook_call(transformed_callback, reply),
         )
 
     def _function_init(self, name: str, permission: str | None):
@@ -592,10 +604,31 @@ class Session:
         **kwargs: Unpack[WrapFunctionOptions],
     ):
         function = _wrap_function(function, **kwargs)
+
+        def transform(resp):
+            if resp is None:
+                resp = {}
+            elif isinstance(resp, BaseModel):
+                resp = resp.model_dump_json()
+            elif isinstance(resp, dict):
+                resp = json.dumps(resp)
+            else:
+                raise TypeError(
+                    'function return value must be a dict or BaseModel'
+                )
+
+            return resp
+
+        def transformed_function(*args, **kwargs):
+            return _auto_transform(
+                function(*args, **kwargs),
+                transform,
+            )
+
         return self._bidi_register(
             self.client._stub.RegisterFunction,
             self._function_init(name, permission),
-            lambda reply: self._function_call(function, reply),
+            lambda reply: self._function_call(transformed_function, reply),
         )
 
     @handle_error
