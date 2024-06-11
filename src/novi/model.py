@@ -55,7 +55,7 @@ class HookAction:
         return HookAction(update_args=False, result_or_args=None)
 
     @staticmethod
-    def update_result(result: Any):
+    def update_result(result: dict[str, Any]):
         return HookAction(update_args=False, result_or_args=result)
 
     @staticmethod

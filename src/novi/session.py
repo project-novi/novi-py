@@ -543,6 +543,10 @@ class Session:
         def transform(resp):
             if resp is None:
                 resp = HookAction.none()
+            elif isinstance(resp, dict):
+                resp = HookAction.update_result(resp)
+            elif isinstance(resp, BaseModel):
+                resp = HookAction.update_result(resp.model_dump(mode='json'))
             elif not isinstance(resp, HookAction):
                 raise TypeError('hook callback must return a HookAction')
 
