@@ -2,6 +2,7 @@ import grpc
 
 from ..errors import handle_error
 from ..identity import Identity
+from ..model import SessionMode
 from ..proto import novi_pb2, novi_pb2_grpc
 from .session import Session
 
@@ -23,10 +24,12 @@ class Client:
 
     @handle_error
     async def session(
-        self, identity: Identity | None = None, lock: bool | None = None
+        self,
+        mode: SessionMode = SessionMode.AUTO,
+        identity: Identity | None = None,
     ) -> Session:
         gen = self._stub.NewSession(
-            novi_pb2.NewSessionRequest(lock=lock),
+            novi_pb2.NewSessionRequest(mode=mode.value),
             metadata=(('identity', identity.token),) if identity else (),
         )
         token = (await gen.read()).token

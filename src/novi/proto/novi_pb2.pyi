@@ -131,10 +131,20 @@ class UseMasterKeyReply(_message.Message):
     def __init__(self, identity: _Optional[str] = ...) -> None: ...
 
 class NewSessionRequest(_message.Message):
-    __slots__ = ("lock",)
-    LOCK_FIELD_NUMBER: _ClassVar[int]
-    lock: bool
-    def __init__(self, lock: bool = ...) -> None: ...
+    __slots__ = ("mode",)
+    class SessionMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        AUTO: _ClassVar[NewSessionRequest.SessionMode]
+        READ_ONLY: _ClassVar[NewSessionRequest.SessionMode]
+        READ_WRITE: _ClassVar[NewSessionRequest.SessionMode]
+        IMMEDIATE: _ClassVar[NewSessionRequest.SessionMode]
+    AUTO: NewSessionRequest.SessionMode
+    READ_ONLY: NewSessionRequest.SessionMode
+    READ_WRITE: NewSessionRequest.SessionMode
+    IMMEDIATE: NewSessionRequest.SessionMode
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    mode: NewSessionRequest.SessionMode
+    def __init__(self, mode: _Optional[_Union[NewSessionRequest.SessionMode, str]] = ...) -> None: ...
 
 class NewSessionReply(_message.Message):
     __slots__ = ("token",)

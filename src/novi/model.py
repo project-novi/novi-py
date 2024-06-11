@@ -15,6 +15,13 @@ Tags = dict[str, str | None]
 TagDict = dict[str, TagValue]
 
 
+class SessionMode(Enum):
+    AUTO = 0
+    READ_ONLY = 1
+    READ_WRITE = 2
+    IMMEDIATE = 3
+
+
 class QueryOrder(Enum):
     CREATED_DESC = 0
     CREATED_ASC = 1

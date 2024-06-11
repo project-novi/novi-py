@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from novi import BaseObject, Client, Identity, HookPoint, Session
 from novi.aio import Client as AClient
+from novi.model import SessionMode
 
 from typing import TypeVar
 
@@ -169,18 +170,18 @@ def get_identity() -> Identity:
     return _state.identity
 
 
-def new_session(**kwargs) -> Session:
-    return get_client().session(identity=_state.identity, **kwargs)
+def new_session(*args, **kwargs) -> Session:
+    return get_client().session(*args, identity=_state.identity, **kwargs)
 
 
 def wrap_session(
     wrap_object: bool = True,
-    lock: bool | None = None,
+    mode: SessionMode = SessionMode.AUTO,
 ):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with new_session(lock=lock) as session:
+            with new_session(mode=mode) as session:
                 if wrap_object:
 
                     def wrap(obj):
