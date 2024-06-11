@@ -613,10 +613,8 @@ class Session:
             if resp is None:
                 resp = {}
             elif isinstance(resp, BaseModel):
-                resp = resp.model_dump_json()
-            elif isinstance(resp, dict):
-                resp = json.dumps(resp)
-            else:
+                resp = resp.model_dump(mode='json')
+            elif not isinstance(resp, dict):
                 raise TypeError(
                     'function return value must be a dict or BaseModel'
                 )
