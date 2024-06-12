@@ -3,36 +3,37 @@ import inspect
 import sys
 
 from structlog import get_logger
-from functools import wraps
+from functools import cache, wraps
 
 from .proto import novi_pb2
-
 
 _METADATA_KEYS = {'argument', 'permission', 'id', 'tag', 'type'}
 
 lg = get_logger()
 
 
+@cache
 def _error_dict():
-    return {
-        'Unspecified': NoviError,
-        'Unsupported': UnsupportedError,
-        'DBError': DBError,
-        'IOError': IOError,
-        'PermissionDenied': PermissionDeniedError,
-        'IdentityExpired': IdentityExpiredError,
-        'FileNotFound': FileNotFoundError,
-        'FunctionNotFound': FunctionNotFoundError,
-        'ObjectNotFound': ObjectNotFoundError,
-        'InvalidArgument': InvalidArgumentError,
-        'InvalidCredentials': InvalidCredentialsError,
-        'InvalidTag': InvalidTagError,
-        'InvalidObject': InvalidObjectError,
-        'InvalidState': InvalidStateError,
-    }
+    errors = [
+        NoviError,
+        UnsupportedError,
+        DBError,
+        IOError,
+        PermissionDeniedError,
+        IdentityExpiredError,
+        FileNotFoundError,
+        FunctionNotFoundError,
+        ObjectNotFoundError,
+        InvalidArgumentError,
+        InvalidCredentialsError,
+        InvalidTagError,
+        InvalidObjectError,
+        InvalidStateError,
+    ]
+    return {error.KIND: error for error in errors}
 
 
-def _error_kind(kind):
+def _error_by_kind(kind):
     return _error_dict().get(kind, NoviError)
 
 
@@ -61,6 +62,8 @@ def handle_error(func):
 
 
 class NoviError(Exception):
+    KIND = 'Unspecified'
+
     metadata: dict[str, str]
 
     def __init__(self, message: str, metadata: dict[str, str] = {}):
@@ -75,29 +78,22 @@ class NoviError(Exception):
 
     @staticmethod
     def from_pb(pb: novi_pb2.Error):
-        error = _error_kind(pb.kind)
+        error = _error_by_kind(pb.kind)
         return error(pb.message, pb.metadata)
 
     @staticmethod
     def from_grpc(exc: grpc.RpcError):
         metadata = exc.trailing_metadata()
         metadata = {datum[0]: datum[1] for datum in metadata}
-        error = _error_kind(metadata.get('kind', ''))
+        error = _error_by_kind(metadata.get('kind', ''))
         return error(
             str(exc.details()),
             {k: v for k, v in metadata.items() if k in _METADATA_KEYS},
         )
 
-    def error_kind(self) -> str:
-        for kind, error in _error_dict().items():
-            if isinstance(self, error):
-                return kind
-
-        return 'Unspecified'
-
     def to_pb(self) -> novi_pb2.Error:
         return novi_pb2.Error(
-            kind=self.error_kind(),
+            kind=self.KIND,
             message=super().__str__(),
             metadata=self.metadata,
         )
@@ -116,52 +112,52 @@ class NoviError(Exception):
 
 
 class DBError(NoviError):
-    pass
+    KIND = 'DBError'
 
 
 class IOError(NoviError):
-    pass
+    KIND = 'IOError'
 
 
 class UnsupportedError(NoviError):
-    pass
+    KIND = 'Unsupported'
 
 
 class IdentityExpiredError(NoviError):
-    pass
+    KIND = 'IdentityExpired'
 
 
 class PermissionDeniedError(NoviError):
-    pass
+    KIND = 'PermissionDenied'
 
 
 class FileNotFoundError(NoviError):
-    pass
+    KIND = 'FileNotFound'
 
 
 class FunctionNotFoundError(NoviError):
-    pass
+    KIND = 'FunctionNotFound'
 
 
 class ObjectNotFoundError(NoviError):
-    pass
+    KIND = 'ObjectNotFound'
 
 
 class InvalidArgumentError(NoviError):
-    pass
+    KIND = 'InvalidArgument'
 
 
 class InvalidCredentialsError(NoviError):
-    pass
+    KIND = 'InvalidCredentials'
 
 
 class InvalidTagError(NoviError):
-    pass
+    KIND = 'InvalidTag'
 
 
 class InvalidObjectError(NoviError):
-    pass
+    KIND = 'InvalidObject'
 
 
 class InvalidStateError(NoviError):
-    pass
+    KIND = 'InvalidState'
