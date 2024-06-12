@@ -1,6 +1,6 @@
 import grpc
 
-from ..errors import handle_error
+from ..errors import PermissionDeniedError, handle_error
 from ..identity import Identity
 from ..model import SessionMode
 from ..proto import novi_pb2, novi_pb2_grpc
@@ -64,24 +64,20 @@ class Client:
         return Identity(token)
 
     @handle_error
-    async def check_permission(
-        self,
-        identity: Identity,
-        permission: str | Iterable[str],
-        bail: bool = True,
+    async def has_permission(
+        self, identity: Identity, permission: str | Iterable[str]
     ) -> bool:
         if isinstance(permission, str):
             permission = [permission]
         return (
-            await self._stub.CheckPermission(
-                novi_pb2.CheckPermissionRequest(
-                    permissions=permission, bail=bail
-                ),
+            await self._stub.HasPermission(
+                novi_pb2.HasPermissionRequest(permissions=permission),
                 metadata=(('identity', identity.token),),
             )
         ).ok
 
-    async def has_permission(
-        self, identity: Identity, permission: str
-    ) -> bool:
-        return await self.check_permission(identity, permission, bail=False)
+    async def check_permission(
+        self, identity: Identity, permission: str | Iterable[str]
+    ):
+        if not await self.has_permission(identity, permission):
+            raise PermissionDeniedError(f'permission denied: {permission}')

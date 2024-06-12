@@ -124,10 +124,10 @@ class NoviStub(object):
                 request_serializer=novi_dot_proto_dot_novi__pb2.CallFunctionRequest.SerializeToString,
                 response_deserializer=novi_dot_proto_dot_novi__pb2.CallFunctionReply.FromString,
                 _registered_method=True)
-        self.CheckPermission = channel.unary_unary(
-                '/novi.Novi/CheckPermission',
-                request_serializer=novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.SerializeToString,
-                response_deserializer=novi_dot_proto_dot_novi__pb2.CheckPermissionReply.FromString,
+        self.HasPermission = channel.unary_unary(
+                '/novi.Novi/HasPermission',
+                request_serializer=novi_dot_proto_dot_novi__pb2.HasPermissionRequest.SerializeToString,
+                response_deserializer=novi_dot_proto_dot_novi__pb2.HasPermissionReply.FromString,
                 _registered_method=True)
 
 
@@ -135,7 +135,8 @@ class NoviServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Login(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """credentials
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -153,7 +154,8 @@ class NoviServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def NewSession(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """session management
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -165,7 +167,8 @@ class NoviServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def CreateObject(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """object operations
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -201,7 +204,8 @@ class NoviServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Query(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """advanced operations
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -236,8 +240,9 @@ class NoviServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def CheckPermission(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def HasPermission(self, request, context):
+        """identity related
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -330,10 +335,10 @@ def add_NoviServicer_to_server(servicer, server):
                     request_deserializer=novi_dot_proto_dot_novi__pb2.CallFunctionRequest.FromString,
                     response_serializer=novi_dot_proto_dot_novi__pb2.CallFunctionReply.SerializeToString,
             ),
-            'CheckPermission': grpc.unary_unary_rpc_method_handler(
-                    servicer.CheckPermission,
-                    request_deserializer=novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.FromString,
-                    response_serializer=novi_dot_proto_dot_novi__pb2.CheckPermissionReply.SerializeToString,
+            'HasPermission': grpc.unary_unary_rpc_method_handler(
+                    servicer.HasPermission,
+                    request_deserializer=novi_dot_proto_dot_novi__pb2.HasPermissionRequest.FromString,
+                    response_serializer=novi_dot_proto_dot_novi__pb2.HasPermissionReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -806,7 +811,7 @@ class Novi(object):
             _registered_method=True)
 
     @staticmethod
-    def CheckPermission(request,
+    def HasPermission(request,
             target,
             options=(),
             channel_credentials=None,
@@ -819,9 +824,9 @@ class Novi(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/novi.Novi/CheckPermission',
-            novi_dot_proto_dot_novi__pb2.CheckPermissionRequest.SerializeToString,
-            novi_dot_proto_dot_novi__pb2.CheckPermissionReply.FromString,
+            '/novi.Novi/HasPermission',
+            novi_dot_proto_dot_novi__pb2.HasPermissionRequest.SerializeToString,
+            novi_dot_proto_dot_novi__pb2.HasPermissionReply.FromString,
             options,
             channel_credentials,
             insecure,

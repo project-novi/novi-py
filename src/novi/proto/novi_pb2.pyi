@@ -458,15 +458,13 @@ class CallFunctionReply(_message.Message):
     result: str
     def __init__(self, result: _Optional[str] = ...) -> None: ...
 
-class CheckPermissionRequest(_message.Message):
-    __slots__ = ("permissions", "bail")
+class HasPermissionRequest(_message.Message):
+    __slots__ = ("permissions",)
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
-    BAIL_FIELD_NUMBER: _ClassVar[int]
     permissions: _containers.RepeatedScalarFieldContainer[str]
-    bail: bool
-    def __init__(self, permissions: _Optional[_Iterable[str]] = ..., bail: bool = ...) -> None: ...
+    def __init__(self, permissions: _Optional[_Iterable[str]] = ...) -> None: ...
 
-class CheckPermissionReply(_message.Message):
+class HasPermissionReply(_message.Message):
     __slots__ = ("ok",)
     OK_FIELD_NUMBER: _ClassVar[int]
     ok: bool

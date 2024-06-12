@@ -22,7 +22,7 @@ from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
 from .object import BaseObject, Object, EditableObject
 from .proto import novi_pb2
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable
 from typing import (
     Any,
     BinaryIO,
@@ -204,7 +204,7 @@ class Session:
             worker.join()
 
     @contextmanager
-    def fidentity(self, identity: Identity):
+    def with_identity(self, identity: Identity):
         old_identity = self.identity
         self.identity = identity
         try:
@@ -285,7 +285,7 @@ class Session:
 
     @handle_error
     def delete_object_tags(
-        self, id: UUID | str, tags: Iterator[str]
+        self, id: UUID | str, tags: Iterable[str]
     ) -> Object:
         if isinstance(id, str):
             id = UUID(id)
@@ -362,7 +362,7 @@ class Session:
         )
 
     @mock_with_return(
-        _subscribe_request, Iterator[tuple[BaseObject, EventKind]]
+        _subscribe_request, Iterable[tuple[BaseObject, EventKind]]
     )
     def subscribe_stream(self, *args, **kwargs):
         it = self._send(
@@ -708,3 +708,9 @@ class Session:
             self.call_function('file.store', args),
             lambda _: None,
         )
+
+    def has_permission(self, permission: str | Iterable[str]):
+        return self.client.has_permission(self.identity, permission)
+
+    def check_permission(self, permission: str):
+        return self.client.check_permission(self.identity, permission)
