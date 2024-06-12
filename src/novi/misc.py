@@ -1,3 +1,5 @@
+import inspect
+
 from .model import Tags
 from .proto import novi_pb2
 
@@ -63,3 +65,14 @@ def mock_with_return(f: Callable[P, Any], ret: type[R]) -> Callable[
     Callable[P, R],
 ]:
     return lambda _: _
+
+
+def auto_map(value, transform):
+    if inspect.isawaitable(value):
+
+        async def wrapper():
+            return transform(await value)
+
+        return wrapper()
+
+    return transform(value)

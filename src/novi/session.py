@@ -17,6 +17,7 @@ from .misc import (
     dt_to_timestamp,
     tags_to_pb,
     mock_with_return,
+    auto_map,
 )
 from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
 from .object import BaseObject, Object, EditableObject
@@ -65,17 +66,6 @@ P = ParamSpec('P')
 def _queue_as_gen(q: Queue):
     while True:
         yield q.get()
-
-
-def _auto_transform(value, transform):
-    if inspect.isawaitable(value):
-
-        async def wrapper():
-            return transform(await value)
-
-        return wrapper()
-
-    return transform(value)
 
 
 def _mock_subscribe(f: Callable[Concatenate[S, str, P], Any]) -> Callable[
@@ -338,7 +328,7 @@ class Session:
         )
 
     def query_one(self, filter: str, **kwargs) -> Object | None:
-        return _auto_transform(
+        return auto_map(
             self.query(filter, limit=1, **kwargs),
             lambda objects: objects[0] if objects else None,
         )
@@ -428,7 +418,7 @@ class Session:
                 identity=identity,
             )
             # TODO: ObjectEdits
-            return _auto_transform(
+            return auto_map(
                 resp,
                 lambda x: novi_pb2.RegCoreHookRequest(
                     result=novi_pb2.RegCoreHookRequest.CallResult(
@@ -519,7 +509,7 @@ class Session:
                     )
                 )
 
-            return _auto_transform(resp, transform)
+            return auto_map(resp, transform)
 
         except Exception:
             error = NoviError.current('error in hook callback')
@@ -553,7 +543,7 @@ class Session:
             return resp
 
         def transformed_callback(*args, **kwargs):
-            return _auto_transform(
+            return auto_map(
                 callback(*args, **kwargs),
                 transform,
             )
@@ -581,7 +571,7 @@ class Session:
                 arguments=json.loads(reply.arguments),
                 session=session,
             )
-            return _auto_transform(
+            return auto_map(
                 resp,
                 lambda x: novi_pb2.RegFunctionRequest(
                     result=novi_pb2.RegFunctionRequest.CallResult(
@@ -622,7 +612,7 @@ class Session:
             return resp
 
         def transformed_function(*args, **kwargs):
-            return _auto_transform(
+            return auto_map(
                 function(*args, **kwargs),
                 transform,
             )
@@ -663,7 +653,7 @@ class Session:
 
             return url
 
-        return _auto_transform(
+        return auto_map(
             self.call_function(
                 'file.url',
                 {'id': str(id), 'variant': variant},
@@ -704,12 +694,12 @@ class Session:
         else:
             raise ValueError('must specify either path or url')
 
-        return _auto_transform(
+        return auto_map(
             self.call_function('file.store', args),
             lambda _: None,
         )
 
-    def has_permission(self, permission: str | Iterable[str]):
+    def has_permission(self, permission: str | Iterable[str]) -> bool:
         return self.client.has_permission(self.identity, permission)
 
     def check_permission(self, permission: str):

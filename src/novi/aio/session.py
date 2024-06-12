@@ -16,7 +16,7 @@ from ..proto import novi_pb2
 from ..session import Session as SyncSession
 from .object import Object
 
-from collections.abc import AsyncIterator, Callable, Coroutine, Iterable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, ParamSpec, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -218,8 +218,10 @@ class Session(SyncSession):
     def store_object(self, *args, **kwargs):
         return super().store_object(*args, **kwargs)
 
-    async def has_permission(self, permission: str | Iterable[str]):
-        return await self.client.has_permission(self.identity, permission)
+    @mock_as_coro(SyncSession.has_permission)
+    def has_permission(self, *args, **kwargs):
+        return super().has_permission(*args, **kwargs)
 
-    async def check_permission(self, permission: str):
-        return await self.client.check_permission(self.identity, permission)
+    @mock_as_coro(SyncSession.check_permission)
+    def check_permission(self, *args, **kwargs):
+        return super().check_permission(*args, **kwargs)

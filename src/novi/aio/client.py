@@ -1,15 +1,15 @@
 import grpc
 
-from ..errors import PermissionDeniedError, handle_error
+from ..client import Client as SyncClient
+from ..errors import handle_error
 from ..identity import Identity
+from ..misc import mock_as_coro
 from ..model import SessionMode
 from ..proto import novi_pb2, novi_pb2_grpc
 from .session import Session
 
-from collections.abc import Iterable
 
-
-class Client:
+class Client(SyncClient):
     def __init__(self, channel: grpc.aio.Channel):
         self._stub = novi_pb2_grpc.NoviStub(channel)
 
@@ -63,21 +63,10 @@ class Client:
         ).identity
         return Identity(token)
 
-    @handle_error
-    async def has_permission(
-        self, identity: Identity, permission: str | Iterable[str]
-    ) -> bool:
-        if isinstance(permission, str):
-            permission = [permission]
-        return (
-            await self._stub.HasPermission(
-                novi_pb2.HasPermissionRequest(permissions=permission),
-                metadata=(('identity', identity.token),),
-            )
-        ).ok
+    @mock_as_coro(SyncClient.has_permission)
+    def has_permission(self, *args, **kwargs):
+        return super().has_permission(*args, **kwargs)
 
-    async def check_permission(
-        self, identity: Identity, permission: str | Iterable[str]
-    ):
-        if not await self.has_permission(identity, permission):
-            raise PermissionDeniedError(f'permission denied: {permission}')
+    @mock_as_coro(SyncClient.check_permission)
+    def check_permission(self, *args, **kwargs):
+        return super().check_permission(*args, **kwargs)

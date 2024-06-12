@@ -2,6 +2,7 @@ import grpc
 
 from .errors import PermissionDeniedError, handle_error
 from .identity import Identity
+from .misc import auto_map
 from .model import SessionMode
 from .proto import novi_pb2, novi_pb2_grpc
 from .session import Session
@@ -64,13 +65,24 @@ class Client:
     ) -> bool:
         if isinstance(permission, str):
             permission = [permission]
-        return self._stub.HasPermission(
-            novi_pb2.HasPermissionRequest(permissions=permission),
-            metadata=(('identity', identity.token),),
-        ).ok
+        return auto_map(
+            self._stub.HasPermission(
+                novi_pb2.HasPermissionRequest(permissions=permission),
+                metadata=(('identity', identity.token),),
+            ),
+            lambda reply: reply.ok,
+        )
 
     def check_permission(
         self, identity: Identity, permission: str | Iterable[str]
     ):
-        if not self.has_permission(identity, permission):
-            raise PermissionDeniedError(f'permission denied: {permission}')
+        def action(ok):
+            if not ok:
+                raise PermissionDeniedError(
+                    'permission denied', {'permission': permission}
+                )
+
+        return auto_map(
+            self.has_permission(identity, permission),
+            action,
+        )
