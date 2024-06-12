@@ -624,15 +624,11 @@ class Session:
         )
 
     @handle_error
-    def call_function(
-        self,
-        name: str,
-        arguments: dict[str, Any],
-    ) -> dict[str, Any]:
+    def call_function(self, name: str, **kwargs) -> dict[str, Any]:
         return self._send(
             self.client._stub.CallFunction,
             novi_pb2.CallFunctionRequest(
-                name=name, arguments=json.dumps(arguments)
+                name=name, arguments=json.dumps(kwargs)
             ),
             lambda reply: json.loads(reply.result),
         )
