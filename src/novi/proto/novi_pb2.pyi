@@ -411,12 +411,12 @@ class RegHookReply(_message.Message):
 class RegFunctionRequest(_message.Message):
     __slots__ = ("initiate", "result")
     class Initiate(_message.Message):
-        __slots__ = ("name", "permission")
+        __slots__ = ("name", "hookable")
         NAME_FIELD_NUMBER: _ClassVar[int]
-        PERMISSION_FIELD_NUMBER: _ClassVar[int]
+        HOOKABLE_FIELD_NUMBER: _ClassVar[int]
         name: str
-        permission: str
-        def __init__(self, name: _Optional[str] = ..., permission: _Optional[str] = ...) -> None: ...
+        hookable: bool
+        def __init__(self, name: _Optional[str] = ..., hookable: bool = ...) -> None: ...
     class CallResult(_message.Message):
         __slots__ = ("call_id", "response", "error")
         CALL_ID_FIELD_NUMBER: _ClassVar[int]

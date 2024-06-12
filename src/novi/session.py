@@ -564,10 +564,10 @@ class Session:
             lambda reply: self._hook_call(transformed_callback, reply),
         )
 
-    def _function_init(self, name: str, permission: str | None):
+    def _function_init(self, name: str, hookable: bool):
         return novi_pb2.RegFunctionRequest(
             initiate=novi_pb2.RegFunctionRequest.Initiate(
-                name=name, permission=permission
+                name=name, hookable=hookable
             )
         )
 
@@ -604,7 +604,7 @@ class Session:
         self,
         name: str,
         function: Callable,
-        permission: str | None = None,
+        hookable: bool = True,
         **kwargs: Unpack[WrapFunctionOptions],
     ):
         function = _wrap_function(function, **kwargs)
@@ -629,7 +629,7 @@ class Session:
 
         return self._bidi_register(
             self.client._stub.RegisterFunction,
-            self._function_init(name, permission),
+            self._function_init(name, hookable),
             lambda reply: self._function_call(transformed_function, reply),
         )
 
