@@ -652,7 +652,8 @@ class Session:
         return auto_map(
             self.call_function(
                 'file.url',
-                {'id': str(id), 'variant': variant},
+                id=str(id),
+                variant=variant,
             ),
             transform,
         )
@@ -691,7 +692,7 @@ class Session:
             raise ValueError('must specify either path or url')
 
         return auto_map(
-            self.call_function('file.store', args),
+            self.call_function('file.store', **args),
             lambda _: None,
         )
 
