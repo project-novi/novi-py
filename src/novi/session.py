@@ -224,13 +224,13 @@ class Session:
         )
 
     @handle_error
-    def get_object(self, id: UUID | str) -> Object:
+    def get_object(self, id: UUID | str, lock: bool = True) -> Object:
         if isinstance(id, str):
             id = UUID(id)
 
         return self._send(
             self.client._stub.GetObject,
-            novi_pb2.GetObjectRequest(id=uuid_to_pb(id)),
+            novi_pb2.GetObjectRequest(id=uuid_to_pb(id), lock=lock),
             lambda reply: self._new_object(reply.object),
         )
 
@@ -308,6 +308,7 @@ class Session:
         created_before: datetime | None = None,
         order: QueryOrder = QueryOrder.CREATED_DESC,
         limit: int | None = 30,
+        lock: bool = True,
     ) -> list[Object]:
         def to_timestamp(dt: datetime | None):
             return None if dt is None else dt_to_timestamp(dt)
@@ -323,6 +324,7 @@ class Session:
                 created_before=to_timestamp(created_before),
                 order=order.value,
                 limit=limit,
+                lock=lock,
             ),
             lambda reply: [self._new_object(obj) for obj in reply.objects],
         )

@@ -6,11 +6,22 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class SessionMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AUTO: _ClassVar[SessionMode]
+    READ_ONLY: _ClassVar[SessionMode]
+    READ_WRITE: _ClassVar[SessionMode]
+    IMMEDIATE: _ClassVar[SessionMode]
+
 class EventKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     CREATE: _ClassVar[EventKind]
     UPDATE: _ClassVar[EventKind]
     DELETE: _ClassVar[EventKind]
+AUTO: SessionMode
+READ_ONLY: SessionMode
+READ_WRITE: SessionMode
+IMMEDIATE: SessionMode
 CREATE: EventKind
 UPDATE: EventKind
 DELETE: EventKind
@@ -132,19 +143,9 @@ class UseMasterKeyReply(_message.Message):
 
 class NewSessionRequest(_message.Message):
     __slots__ = ("mode",)
-    class SessionMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = ()
-        AUTO: _ClassVar[NewSessionRequest.SessionMode]
-        READ_ONLY: _ClassVar[NewSessionRequest.SessionMode]
-        READ_WRITE: _ClassVar[NewSessionRequest.SessionMode]
-        IMMEDIATE: _ClassVar[NewSessionRequest.SessionMode]
-    AUTO: NewSessionRequest.SessionMode
-    READ_ONLY: NewSessionRequest.SessionMode
-    READ_WRITE: NewSessionRequest.SessionMode
-    IMMEDIATE: NewSessionRequest.SessionMode
     MODE_FIELD_NUMBER: _ClassVar[int]
-    mode: NewSessionRequest.SessionMode
-    def __init__(self, mode: _Optional[_Union[NewSessionRequest.SessionMode, str]] = ...) -> None: ...
+    mode: SessionMode
+    def __init__(self, mode: _Optional[_Union[SessionMode, str]] = ...) -> None: ...
 
 class NewSessionReply(_message.Message):
     __slots__ = ("token",)
@@ -175,10 +176,12 @@ class CreateObjectReply(_message.Message):
     def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ...) -> None: ...
 
 class GetObjectRequest(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "lock")
     ID_FIELD_NUMBER: _ClassVar[int]
+    LOCK_FIELD_NUMBER: _ClassVar[int]
     id: UUID
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ...) -> None: ...
+    lock: bool
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., lock: bool = ...) -> None: ...
 
 class GetObjectReply(_message.Message):
     __slots__ = ("object",)
@@ -245,7 +248,7 @@ class DeleteObjectReply(_message.Message):
     def __init__(self) -> None: ...
 
 class QueryRequest(_message.Message):
-    __slots__ = ("filter", "checkpoint", "updated_after", "updated_before", "created_after", "created_before", "order", "limit")
+    __slots__ = ("filter", "checkpoint", "updated_after", "updated_before", "created_after", "created_before", "order", "limit", "lock")
     class Order(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         CREATED_DESC: _ClassVar[QueryRequest.Order]
@@ -264,6 +267,7 @@ class QueryRequest(_message.Message):
     CREATED_BEFORE_FIELD_NUMBER: _ClassVar[int]
     ORDER_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    LOCK_FIELD_NUMBER: _ClassVar[int]
     filter: str
     checkpoint: int
     updated_after: int
@@ -272,7 +276,8 @@ class QueryRequest(_message.Message):
     created_before: int
     order: QueryRequest.Order
     limit: int
-    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., updated_after: _Optional[int] = ..., updated_before: _Optional[int] = ..., created_after: _Optional[int] = ..., created_before: _Optional[int] = ..., order: _Optional[_Union[QueryRequest.Order, str]] = ..., limit: _Optional[int] = ...) -> None: ...
+    lock: bool
+    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., updated_after: _Optional[int] = ..., updated_before: _Optional[int] = ..., created_after: _Optional[int] = ..., created_before: _Optional[int] = ..., order: _Optional[_Union[QueryRequest.Order, str]] = ..., limit: _Optional[int] = ..., lock: bool = ...) -> None: ...
 
 class QueryReply(_message.Message):
     __slots__ = ("objects",)
@@ -281,22 +286,30 @@ class QueryReply(_message.Message):
     def __init__(self, objects: _Optional[_Iterable[_Union[Object, _Mapping]]] = ...) -> None: ...
 
 class SubscribeRequest(_message.Message):
-    __slots__ = ("filter", "checkpoint", "accept_kinds")
+    __slots__ = ("filter", "checkpoint", "accept_kinds", "session", "latest", "recheck")
     FILTER_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
     ACCEPT_KINDS_FIELD_NUMBER: _ClassVar[int]
+    SESSION_FIELD_NUMBER: _ClassVar[int]
+    LATEST_FIELD_NUMBER: _ClassVar[int]
+    RECHECK_FIELD_NUMBER: _ClassVar[int]
     filter: str
     checkpoint: int
     accept_kinds: _containers.RepeatedScalarFieldContainer[EventKind]
-    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., accept_kinds: _Optional[_Iterable[_Union[EventKind, str]]] = ...) -> None: ...
+    session: SessionMode
+    latest: bool
+    recheck: bool
+    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., accept_kinds: _Optional[_Iterable[_Union[EventKind, str]]] = ..., session: _Optional[_Union[SessionMode, str]] = ..., latest: bool = ..., recheck: bool = ...) -> None: ...
 
 class SubscribeReply(_message.Message):
-    __slots__ = ("object", "kind")
+    __slots__ = ("object", "kind", "session")
     OBJECT_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
+    SESSION_FIELD_NUMBER: _ClassVar[int]
     object: Object
     kind: EventKind
-    def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ..., kind: _Optional[_Union[EventKind, str]] = ...) -> None: ...
+    session: str
+    def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ..., kind: _Optional[_Union[EventKind, str]] = ..., session: _Optional[str] = ...) -> None: ...
 
 class ObjectEdits(_message.Message):
     __slots__ = ("deletes", "update", "clear")
