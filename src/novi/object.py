@@ -139,7 +139,7 @@ class BaseObject:
         self.created = other.created
         self.updated = other.updated
 
-    def with_session(self, session: 'Session') -> 'Object':
+    def withsession(self, session: 'Session') -> 'Object':
         obj = Object(
             id=self.id,
             tags=self.tags,
@@ -147,7 +147,7 @@ class BaseObject:
             created=self.created,
             updated=self.updated,
         )
-        obj._session = session
+        obj.session = session
         return obj
 
     def __getitem__(self, tag: str) -> str | None:
@@ -174,43 +174,43 @@ class BaseObject:
 
 
 class Object(BaseObject):
-    _session: 'Session'
+    session: 'Session'
 
     @classmethod
     def from_pb(cls, pb: novi_pb2.Object, session: 'Session'):
         obj = super().from_pb(pb)
-        obj._session = session
+        obj.session = session
         return obj
 
     def set(self, tag: str, value: str | None = None):
-        return self.assign(self._session.update_object(self.id, {tag: value}))
+        return self.assign(self.session.update_object(self.id, {tag: value}))
 
     def update(self, tags: Tags):
-        return self.assign(self._session.update_object(self.id, tags))
+        return self.assign(self.session.update_object(self.id, tags))
 
     def replace(self, tags: Tags, scopes: Tags | None = None):
-        return self.assign(self._session.replace_object(self.id, tags, scopes))
+        return self.assign(self.session.replace_object(self.id, tags, scopes))
 
     def delete_tag(self, tag: str):
         return self.delete_tags([tag])
 
     def delete_tags(self, tags: Iterator[str]):
-        return self.assign(self._session.delete_object_tags(self.id, tags))
+        return self.assign(self.session.delete_object_tags(self.id, tags))
 
     def delete(self):
-        return self._session.delete_object(self.id)
+        return self.session.delete_object(self.id)
 
     def url(
         self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
     ) -> str:
         """Returns the URL of the object files."""
-        return self._session.get_object_url(self.id, variant, **kwargs)
+        return self.session.get_object_url(self.id, variant, **kwargs)
 
     def open(
         self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
     ) -> BinaryIO:
         """Opens the object as a file-like object."""
-        return self._session.open_object(self.id, variant, **kwargs)
+        return self.session.open_object(self.id, variant, **kwargs)
 
     def read_text(
         self,
@@ -236,7 +236,7 @@ class Object(BaseObject):
         self, variant: str = 'original', **kwargs: Unpack['StoreObjectOptions']
     ):
         """Stores a file or URL as the object's content."""
-        return self._session.store_object(self.id, variant, **kwargs)
+        return self.session.store_object(self.id, variant, **kwargs)
 
 
 class EditableObject(BaseObject):

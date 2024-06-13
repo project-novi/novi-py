@@ -10,9 +10,12 @@ from functools import wraps
 from pathlib import Path
 from pydantic import BaseModel
 
-from novi import BaseObject, Client, Identity, HookPoint, Session
-from novi.aio import Client as AClient
-from novi.model import SessionMode
+from .aio import Client as AClient
+from .client import Client
+from .identity import Identity
+from .model import HookPoint, SessionMode
+from .object import BaseObject
+from .session import Session
 
 from typing import TypeVar
 
@@ -25,9 +28,18 @@ def _wrap_subscriber_cb(cb):
     @wraps(cb)
     def wrapper(*args, **kwargs):
         if 'session' in kwargs:
-            kwargs['session'].identity = get_identity()
+            session = kwargs['session']
+        elif 'object' in kwargs:
+            session = kwargs['object'].session
+        else:
+            session = None
+
+        if session is not None:
+            session.identity = get_identity()
 
         return cb(*args, **kwargs)
+
+    wrapper.__signature__ = inspect.signature(cb)
 
     return wrapper
 
