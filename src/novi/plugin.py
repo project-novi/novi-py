@@ -21,6 +21,17 @@ _min_utc = datetime.min.replace(tzinfo=timezone.utc)
 T = TypeVar('T', bound=BaseModel)
 
 
+def _wrap_subscriber_cb(cb):
+    @wraps(cb)
+    def wrapper(*args, **kwargs):
+        if 'session' in kwargs:
+            kwargs['session'].identity = get_identity()
+
+        return cb(*args, **kwargs)
+
+    return wrapper
+
+
 class _State:
     initialized: bool
 
@@ -208,7 +219,7 @@ def wrap_session(
 def subs(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        _state.session.subscribe(filter, cb, **kwargs)
+        _state.session.subscribe(filter, _wrap_subscriber_cb(cb), **kwargs)
 
         return cb
 
@@ -218,7 +229,9 @@ def subs(filter: str, **kwargs):
 def fix(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
-        _state.session.subscribe(filter, cb, checkpoint=_min_utc, **kwargs)
+        _state.session.subscribe(
+            filter, _wrap_subscriber_cb(cb), checkpoint=_min_utc, **kwargs
+        )
 
         return cb
 
