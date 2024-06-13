@@ -203,7 +203,7 @@ class Session:
             worker.join()
 
     @contextmanager
-    def with_identity(self, identity: Identity):
+    def use_identity(self, identity: Identity):
         old_identity = self.identity
         self.identity = identity
         try:
