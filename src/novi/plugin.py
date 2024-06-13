@@ -233,7 +233,11 @@ def fix(filter: str, **kwargs):
     def decorator(cb):
         _state.ensure_init()
         _state.session.subscribe(
-            filter, _wrap_subscriber_cb(cb), checkpoint=_min_utc, **kwargs
+            filter,
+            _wrap_subscriber_cb(cb),
+            checkpoint=_min_utc,
+            wrap_session=SessionMode.AUTO,
+            **kwargs,
         )
 
         return cb

@@ -360,7 +360,7 @@ class Session:
             EventKind.UPDATE,
         },
         # used for mocking
-        session: SessionMode | None = SessionMode.AUTO,
+        wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
     ):
@@ -381,7 +381,7 @@ class Session:
         self,
         filter: str,
         *args,
-        wrap_session: SessionMode | None = SessionMode.AUTO,
+        wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
         **kwargs,
