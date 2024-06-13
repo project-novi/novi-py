@@ -71,7 +71,7 @@ class NoviError(Exception):
         super().__init__(message)
 
     def __str__(self):
-        s = super().__str__()
+        s = self.KIND + ': ' + super().__str__()
         if self.metadata:
             s += ' ' + str(self.metadata)
         return s
