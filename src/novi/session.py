@@ -570,8 +570,8 @@ class Session:
             session = type(self)(self.client, reply.session)
             session.identity = Identity(reply.identity)
             resp = callback(
-                arguments=json.loads(reply.arguments),
                 session=session,
+                arguments=json.loads(reply.arguments),
             )
             return auto_map(
                 resp,
