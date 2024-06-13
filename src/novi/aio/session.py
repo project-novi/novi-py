@@ -127,6 +127,7 @@ class Session(SyncSession):
     )
     async def subscribe_stream(
         self,
+        filter: str,
         *args,
         wrap_session: SessionMode | None = SessionMode.AUTO,
         latest: bool = True,
@@ -135,7 +136,7 @@ class Session(SyncSession):
     ):
         it = super()._send(
             self.client._stub.Subscribe,
-            self._subscribe_request(*args, **kwargs),
+            self._subscribe_request(filter, *args, **kwargs),
         )
         try:
             async for event in it:
@@ -145,11 +146,10 @@ class Session(SyncSession):
                         mode=wrap_session
                     ) as session:
                         if latest:
-                            object = await session.get_object(
-                                uuid_from_pb(event.object.id)
+                            object = session.get_object(
+                                uuid_from_pb(event.object.id),
+                                precondition=filter if recheck else None,
                             )
-                            if recheck:
-                                print('WARN rechecking object')
                         else:
                             object = session._new_object(event.object)
 

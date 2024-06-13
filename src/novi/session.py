@@ -255,13 +255,20 @@ class Session:
         )
 
     @handle_error
-    def get_object(self, id: UUID | str, lock: bool = True) -> Object:
+    def get_object(
+        self,
+        id: UUID | str,
+        lock: bool = True,
+        precondition: str | None = None,
+    ) -> Object:
         if isinstance(id, str):
             id = UUID(id)
 
         return self._send(
             self.client._stub.GetObject,
-            novi_pb2.GetObjectRequest(id=uuid_to_pb(id), lock=lock),
+            novi_pb2.GetObjectRequest(
+                id=uuid_to_pb(id), lock=lock, precondition=precondition
+            ),
             lambda reply: self._new_object(reply.object),
         )
 
@@ -394,15 +401,16 @@ class Session:
     )
     def subscribe_stream(
         self,
+        filter: str,
         *args,
         wrap_session: SessionMode | None = SessionMode.AUTO,
         latest: bool = True,
         recheck: bool = True,
         **kwargs,
     ):
-        it: Iterable[novi_pb2.SubscribeReply] = self._send(
+        it = self._send(
             self.client._stub.Subscribe,
-            self._subscribe_request(*args, **kwargs),
+            self._subscribe_request(filter, *args, **kwargs),
         )
         try:
             for event in it:
@@ -411,10 +419,9 @@ class Session:
                     with self.client.session(mode=wrap_session) as session:
                         if latest:
                             object = session.get_object(
-                                uuid_from_pb(event.object.id)
+                                uuid_from_pb(event.object.id),
+                                precondition=filter if recheck else None,
                             )
-                            if recheck:
-                                print('WARN rechecking object')
                         else:
                             object = session._new_object(event.object)
 

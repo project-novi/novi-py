@@ -176,12 +176,14 @@ class CreateObjectReply(_message.Message):
     def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ...) -> None: ...
 
 class GetObjectRequest(_message.Message):
-    __slots__ = ("id", "lock")
+    __slots__ = ("id", "lock", "precondition")
     ID_FIELD_NUMBER: _ClassVar[int]
     LOCK_FIELD_NUMBER: _ClassVar[int]
+    PRECONDITION_FIELD_NUMBER: _ClassVar[int]
     id: UUID
     lock: bool
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., lock: bool = ...) -> None: ...
+    precondition: str
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., lock: bool = ..., precondition: _Optional[str] = ...) -> None: ...
 
 class GetObjectReply(_message.Message):
     __slots__ = ("object",)

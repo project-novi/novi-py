@@ -24,6 +24,7 @@ def _error_dict():
         FileNotFoundError,
         FunctionNotFoundError,
         ObjectNotFoundError,
+        PreconditionFailedError,
         InvalidArgumentError,
         InvalidCredentialsError,
         InvalidTagError,
@@ -141,6 +142,10 @@ class FunctionNotFoundError(NoviError):
 
 class ObjectNotFoundError(NoviError):
     KIND = 'ObjectNotFound'
+
+
+class PreconditionFailedError(NoviError):
+    KIND = 'PreconditionFailed'
 
 
 class InvalidArgumentError(NoviError):
