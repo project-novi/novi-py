@@ -13,13 +13,22 @@ from uuid import UUID
 from .errors import NoviError, handle_error
 from .identity import Identity
 from .misc import (
+    uuid_from_pb,
     uuid_to_pb,
     dt_to_timestamp,
     tags_to_pb,
     mock_with_return,
     auto_map,
 )
-from .model import EventKind, HookAction, HookPoint, QueryOrder, Tags
+from .model import (
+    EventKind,
+    HookAction,
+    HookPoint,
+    QueryOrder,
+    SessionMode,
+    SubscribeEvent,
+    Tags,
+)
 from .object import BaseObject, Object, EditableObject
 from .proto import novi_pb2
 
@@ -126,6 +135,28 @@ def _wrap_function(
         return func(**arguments)
 
     return wrapper
+
+
+def _wrap_subscriber_callback(
+    callback: Callable,
+    unpack: bool,
+):
+    if unpack:
+        args = inspect.getfullargspec(callback)[0]
+
+        def wrapped(event):
+            kwargs = {}
+            if 'object' in args:
+                kwargs['object'] = event.object
+            if 'kind' in args:
+                kwargs['kind'] = event.kind
+            if 'session' in args:
+                kwargs['session'] = event.session
+            return callback(**kwargs)
+
+        return wrapped
+
+    return callback
 
 
 class Session:
@@ -342,8 +373,11 @@ class Session:
         accept_kinds: set[EventKind] = {
             EventKind.CREATE,
             EventKind.UPDATE,
-            EventKind.DELETE,
         },
+        # used for mocking
+        session: SessionMode | None = SessionMode.AUTO,
+        latest: bool = True,
+        recheck: bool = True,
     ):
         return novi_pb2.SubscribeRequest(
             filter=filter,
@@ -353,34 +387,61 @@ class Session:
             accept_kinds=[kind.value for kind in accept_kinds],
         )
 
+    # On edit, please also edit its async version
     @mock_with_return(
-        _subscribe_request, Iterable[tuple[BaseObject, EventKind]]
+        _subscribe_request,
+        Iterable[SubscribeEvent],
     )
-    def subscribe_stream(self, *args, **kwargs):
-        it = self._send(
+    def subscribe_stream(
+        self,
+        *args,
+        wrap_session: SessionMode | None = SessionMode.AUTO,
+        latest: bool = True,
+        recheck: bool = True,
+        **kwargs,
+    ):
+        it: Iterable[novi_pb2.SubscribeReply] = self._send(
             self.client._stub.Subscribe,
             self._subscribe_request(*args, **kwargs),
         )
         try:
             for event in it:
-                object = self._new_object(event.object)
                 kind = EventKind(event.kind)
-                yield object, kind
+                if wrap_session is not None:
+                    with self.client.session(mode=wrap_session) as session:
+                        if latest:
+                            object = session.get_object(
+                                uuid_from_pb(event.object.id)
+                            )
+                            if recheck:
+                                print('WARN rechecking object')
+                        else:
+                            object = session._new_object(event.object)
+
+                        yield SubscribeEvent(object, kind, session)
+
+                else:
+                    yield SubscribeEvent(
+                        BaseObject.from_pb(event.object), kind, session
+                    )
         except grpc.RpcError as e:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
 
-    @_mock_subscribe(_subscribe_request)
+    @_mock_subscribe(subscribe_stream)
     def subscribe(
         self,
         filter: str,
-        callback: Callable[[BaseObject, EventKind], None],
+        callback: Callable[[SubscribeEvent], None],
+        unpack: bool = True,
         **kwargs,
     ):
+        callback = _wrap_subscriber_callback(callback, unpack)
+
         def worker():
             try:
-                for object, kind in self.subscribe_stream(filter, **kwargs):
-                    callback(object, kind)
+                for event in self.subscribe_stream(filter, **kwargs):
+                    callback(event)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise

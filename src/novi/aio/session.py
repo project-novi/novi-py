@@ -5,15 +5,14 @@ import inspect
 
 from asyncio import Task, Queue
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 from ..errors import NoviError, handle_error
 from ..identity import Identity
-from ..misc import mock_as_coro, mock_with_return
-from ..model import EventKind
+from ..misc import mock_as_coro, mock_with_return, uuid_from_pb
+from ..model import EventKind, SessionMode, SubscribeEvent
 from ..object import BaseObject
 from ..proto import novi_pb2
-from ..session import Session as SyncSession
+from ..session import Session as SyncSession, _wrap_subscriber_callback
 from .object import Object
 
 from collections.abc import AsyncIterator, Callable, Coroutine
@@ -39,6 +38,8 @@ def _mock_return_object(f: Callable[P, Any]) -> Callable[
 
 
 class Session(SyncSession):
+    client: 'Client'
+
     _tasks: list[Task]
 
     def __init__(
@@ -122,18 +123,42 @@ class Session(SyncSession):
 
     @mock_with_return(
         SyncSession.subscribe_stream,
-        AsyncIterator[tuple[BaseObject, EventKind]],
+        AsyncIterator[SubscribeEvent],
     )
-    async def subscribe_stream(self, *args, **kwargs):
+    async def subscribe_stream(
+        self,
+        *args,
+        wrap_session: SessionMode | None = SessionMode.AUTO,
+        latest: bool = True,
+        recheck: bool = True,
+        **kwargs,
+    ):
         it = super()._send(
             self.client._stub.Subscribe,
             self._subscribe_request(*args, **kwargs),
         )
         try:
             async for event in it:
-                object = self._new_object(event.object)
                 kind = EventKind(event.kind)
-                yield object, kind
+                if wrap_session is not None:
+                    async with await self.client.session(
+                        mode=wrap_session
+                    ) as session:
+                        if latest:
+                            object = await session.get_object(
+                                uuid_from_pb(event.object.id)
+                            )
+                            if recheck:
+                                print('WARN rechecking object')
+                        else:
+                            object = session._new_object(event.object)
+
+                        yield SubscribeEvent(object, kind, session)
+
+                else:
+                    yield SubscribeEvent(
+                        BaseObject.from_pb(event.object), kind, session
+                    )
         except grpc.RpcError as e:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
@@ -142,20 +167,16 @@ class Session(SyncSession):
     async def subscribe(
         self,
         filter: str,
-        callback: Callable[[BaseObject, EventKind], None],
-        checkpoint: datetime | None = None,
-        accept_kinds: set[EventKind] = {
-            EventKind.CREATE,
-            EventKind.UPDATE,
-            EventKind.DELETE,
-        },
+        callback: Callable[[SubscribeEvent], None],
+        unpack: bool = True,
+        **kwargs,
     ):
+        callback = _wrap_subscriber_callback(callback, unpack)
+
         async def worker():
             try:
-                async for object, kind in self.subscribe_stream(
-                    filter, checkpoint, accept_kinds
-                ):
-                    resp = callback(object, kind)
+                async for event in self.subscribe_stream(filter, **kwargs):
+                    resp = callback(event)
                     if inspect.isawaitable(resp):
                         await resp
 

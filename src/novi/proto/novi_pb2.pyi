@@ -286,20 +286,14 @@ class QueryReply(_message.Message):
     def __init__(self, objects: _Optional[_Iterable[_Union[Object, _Mapping]]] = ...) -> None: ...
 
 class SubscribeRequest(_message.Message):
-    __slots__ = ("filter", "checkpoint", "accept_kinds", "session", "latest", "recheck")
+    __slots__ = ("filter", "checkpoint", "accept_kinds")
     FILTER_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
     ACCEPT_KINDS_FIELD_NUMBER: _ClassVar[int]
-    SESSION_FIELD_NUMBER: _ClassVar[int]
-    LATEST_FIELD_NUMBER: _ClassVar[int]
-    RECHECK_FIELD_NUMBER: _ClassVar[int]
     filter: str
     checkpoint: int
     accept_kinds: _containers.RepeatedScalarFieldContainer[EventKind]
-    session: SessionMode
-    latest: bool
-    recheck: bool
-    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., accept_kinds: _Optional[_Iterable[_Union[EventKind, str]]] = ..., session: _Optional[_Union[SessionMode, str]] = ..., latest: bool = ..., recheck: bool = ...) -> None: ...
+    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., accept_kinds: _Optional[_Iterable[_Union[EventKind, str]]] = ...) -> None: ...
 
 class SubscribeReply(_message.Message):
     __slots__ = ("object", "kind", "session")

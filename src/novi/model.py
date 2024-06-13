@@ -2,7 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from typing import Any
+from typing import Any, Generic, TypeVar, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .object import BaseObject
+    from .session import Session
+
+T = TypeVar('T', bound='BaseObject')
 
 
 @dataclass
@@ -61,3 +67,10 @@ class HookAction:
     @staticmethod
     def update_arguments(args: dict[str, Any]):
         return HookAction(update_args=True, result_or_args=args)
+
+
+@dataclass
+class SubscribeEvent(Generic[T]):
+    object: T
+    kind: EventKind
+    session: 'Session | None'
