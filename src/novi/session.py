@@ -137,28 +137,6 @@ def _wrap_function(
     return wrapper
 
 
-def _wrap_subscriber_callback(
-    callback: Callable,
-    unpack: bool,
-):
-    if unpack:
-        args = inspect.getfullargspec(callback)[0]
-
-        def wrapped(event):
-            kwargs = {}
-            if 'object' in args:
-                kwargs['object'] = event.object
-            if 'kind' in args:
-                kwargs['kind'] = event.kind
-            if 'session' in args:
-                kwargs['session'] = event.session
-            return callback(**kwargs)
-
-        return wrapped
-
-    return callback
-
-
 class Session:
     token: str | None
     identity: Identity | None
@@ -440,11 +418,8 @@ class Session:
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
-        unpack: bool = True,
         **kwargs,
     ):
-        callback = _wrap_subscriber_callback(callback, unpack)
-
         def worker():
             try:
                 for event in self.subscribe_stream(filter, **kwargs):

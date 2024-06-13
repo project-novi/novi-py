@@ -12,7 +12,7 @@ from ..misc import mock_as_coro, mock_with_return, uuid_from_pb
 from ..model import EventKind, SessionMode, SubscribeEvent
 from ..object import BaseObject
 from ..proto import novi_pb2
-from ..session import Session as SyncSession, _wrap_subscriber_callback
+from ..session import Session as SyncSession
 from .object import Object
 
 from collections.abc import AsyncIterator, Callable, Coroutine
@@ -168,11 +168,8 @@ class Session(SyncSession):
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
-        unpack: bool = True,
         **kwargs,
     ):
-        callback = _wrap_subscriber_callback(callback, unpack)
-
         async def worker():
             try:
                 async for event in self.subscribe_stream(filter, **kwargs):

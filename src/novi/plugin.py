@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from .aio import Client as AClient
 from .client import Client
 from .identity import Identity
-from .model import HookPoint, SessionMode
+from .model import HookPoint, SessionMode, SubscribeEvent
 from .object import BaseObject
 from .session import Session
 
@@ -26,20 +26,11 @@ T = TypeVar('T', bound=BaseModel)
 
 def _wrap_subscriber_cb(cb):
     @wraps(cb)
-    def wrapper(*args, **kwargs):
-        if 'session' in kwargs:
-            session = kwargs['session']
-        elif 'object' in kwargs:
-            session = kwargs['object'].session
-        else:
-            session = None
+    def wrapper(event: SubscribeEvent):
+        if event.session is not None:
+            event.session.identity = get_identity()
 
-        if session is not None:
-            session.identity = get_identity()
-
-        return cb(*args, **kwargs)
-
-    wrapper.__signature__ = inspect.signature(cb)
+        return cb(event)
 
     return wrapper
 

@@ -1,7 +1,7 @@
 from .client import Client
 from .errors import NoviError
 from .identity import Identity
-from .model import EventKind, HookAction, HookPoint, QueryOrder, SessionMode
+from .model import EventKind, HookAction, HookPoint, QueryOrder, SessionMode, SubscribeEvent
 from .object import (
     BaseObject,
     Object,
@@ -27,6 +27,7 @@ __all__ = [
     'QueryOrder',
     'Session',
     'SessionMode',
+    'SubscribeEvent',
     'TagDict',
     'TagValue',
     'Tags',
