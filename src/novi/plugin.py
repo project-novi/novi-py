@@ -149,13 +149,17 @@ def load_config(model: type[T]) -> T:
 
     try:
         with get_config_template_file().open() as f:
-            config.update(yaml.safe_load(f))
+            obj = yaml.safe_load(f)
+            if obj is not None:
+                config.update(obj)
     except FileNotFoundError:
         pass
 
     try:
         with get_config_file().open() as f:
-            config.update(yaml.safe_load(f))
+            obj = yaml.safe_load(f)
+            if obj is not None:
+                config.update(obj)
     except FileNotFoundError:
         pass
 
