@@ -324,7 +324,7 @@ class Session:
         created_before: datetime | None = None,
         order: QueryOrder = QueryOrder.CREATED_DESC,
         limit: int | None = 30,
-        lock: bool = True,
+        lock: bool = False,
     ) -> list[Object]:
         def to_timestamp(dt: datetime | None):
             return None if dt is None else dt_to_timestamp(dt)
