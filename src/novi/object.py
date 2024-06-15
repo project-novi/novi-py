@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from tempfile import NamedTemporaryFile
 from uuid import UUID
 
 from .errors import InvalidArgumentError
@@ -237,6 +238,29 @@ class Object(BaseObject):
     ):
         """Stores a file or URL as the object's content."""
         return self.session.store_object(self.id, variant, **kwargs)
+
+    def store_bytes(
+        self,
+        data: bytes,
+        variant: str = 'original',
+        **kwargs: Unpack['StoreObjectOptions'],
+    ):
+        """Stores bytes as the object's content."""
+        with NamedTemporaryFile() as f:
+            f.write(data)
+            f.flush()
+            return self.store(variant, path=f.name, **kwargs)
+
+    def store_text(
+        self,
+        text: str,
+        variant: str = 'original',
+        *,
+        encoding: str = 'utf-8',
+        **kwargs: Unpack['StoreObjectOptions'],
+    ):
+        """Stores text as the object's content."""
+        return self.store_bytes(text.encode(encoding), variant, **kwargs)
 
 
 class EditableObject(BaseObject):

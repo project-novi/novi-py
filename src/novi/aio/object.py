@@ -76,3 +76,11 @@ class Object(SyncObject):
     @mock_as_coro(SyncObject.store)
     def store(self, *args, **kwargs):
         return super().store(*args, **kwargs)
+
+    @mock_as_coro(SyncObject.store_bytes)
+    def store_bytes(self, *args, **kwargs):
+        return super().store_bytes(*args, **kwargs)
+
+    @mock_as_coro(SyncObject.store_text)
+    def store_text(self, *args, **kwargs):
+        return super().store_text(*args, **kwargs)
