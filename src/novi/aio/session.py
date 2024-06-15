@@ -235,9 +235,13 @@ class Session(SyncSession):
             async with session.get(url) as resp:
                 yield resp.content
 
-    @mock_as_coro(SyncSession.store_object)
-    def store_object(self, *args, **kwargs):
-        return super().store_object(*args, **kwargs)
+    @mock_as_coro(SyncSession.put_file)
+    def put_file(self, *args, **kwargs):
+        return super().put_file(*args, **kwargs)
+
+    @mock_as_coro(SyncSession.store_file)
+    def store_file(self, *args, **kwargs):
+        return super().store_file(*args, **kwargs)
 
     @mock_as_coro(SyncSession.has_permission)
     def has_permission(self, *args, **kwargs):

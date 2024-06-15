@@ -3,6 +3,7 @@ import inspect
 import json
 
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel, TypeAdapter
@@ -52,20 +53,27 @@ class ObjectUrlOptions(TypedDict, total=False):
     resolve_ipfs: bool
 
 
-class StoreObjectOptions(TypedDict, total=False):
-    path: Path | str | None
-    url: str | None
-
-    storage: str
-    overwrite: bool
-
-
 class WrapFunctionOptions(TypedDict, total=False):
     wrap: bool
     decode_model: bool
     check_type: bool
     includes: list[str]
     filter_arguments: bool
+
+
+class PutFileOptions(TypedDict, total=False):
+    path: Path | str | None
+    url: str | None
+
+
+class StoreFileOptions(PutFileOptions, total=False):
+    storage: str
+    overwrite: bool
+
+
+@dataclass
+class PutFileResponse:
+    url: str
 
 
 S = TypeVar('S')
@@ -712,16 +720,35 @@ class Session:
 
         return urlopen(self.get_object_url(*args, **kwargs))
 
+    def _verify_put_file_options(
+        self, options: PutFileOptions
+    ) -> dict[str, str]:
+        path, url = options.get('path'), options.get('url')
+        if path is not None:
+            if url is not None:
+                raise ValueError('cannot specify both path and url')
+            return {'path': str(path)}
+        elif url is not None:
+            return {'url': url}
+        else:
+            raise ValueError('must specify either path or url')
+
+    def put_file(self, **kwargs: Unpack[PutFileOptions]) -> PutFileResponse:
+        args = self._verify_put_file_options(kwargs)
+        return auto_map(
+            self.call_function('file.put', **args),
+            lambda resp: PutFileResponse(url=resp['url']),
+        )
+
     # On edit, please also edit `StoreObjectOptions`
-    def store_object(
+    def store_file(
         self,
         id: UUID | str,
         variant: str = 'original',
         *,
-        path: Path | str | None = None,
-        url: str | None = None,
         storage: str = 'default',
         overwrite: bool = False,
+        **kwargs: Unpack[PutFileOptions],
     ) -> None:
         """Stores a file or URL as the object's content."""
         args = {
@@ -730,14 +757,7 @@ class Session:
             'storage': storage,
             'overwrite': overwrite,
         }
-        if path is not None:
-            if url is not None:
-                raise ValueError('cannot specify both path and url')
-            args['path'] = str(path)
-        elif url is not None:
-            args['url'] = url
-        else:
-            raise ValueError('must specify either path or url')
+        args.update(self._verify_put_file_options(kwargs))
 
         return auto_map(
             self.call_function('file.store', **args),

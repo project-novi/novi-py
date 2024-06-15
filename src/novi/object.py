@@ -19,7 +19,7 @@ from typing import (
 from typing_extensions import Unpack
 
 if TYPE_CHECKING:
-    from .session import Session, ObjectUrlOptions, StoreObjectOptions
+    from .session import Session, ObjectUrlOptions, StoreFileOptions
 
 P = ParamSpec('P')
 R = TypeVar('R')
@@ -234,16 +234,16 @@ class Object(BaseObject):
             return f.read()
 
     def store(
-        self, variant: str = 'original', **kwargs: Unpack['StoreObjectOptions']
+        self, variant: str = 'original', **kwargs: Unpack['StoreFileOptions']
     ):
         """Stores a file or URL as the object's content."""
-        return self.session.store_object(self.id, variant, **kwargs)
+        return self.session.store_file(self.id, variant, **kwargs)
 
     def store_bytes(
         self,
         data: bytes,
         variant: str = 'original',
-        **kwargs: Unpack['StoreObjectOptions'],
+        **kwargs: Unpack['StoreFileOptions'],
     ):
         """Stores bytes as the object's content."""
         with NamedTemporaryFile() as f:
@@ -257,7 +257,7 @@ class Object(BaseObject):
         variant: str = 'original',
         *,
         encoding: str = 'utf-8',
-        **kwargs: Unpack['StoreObjectOptions'],
+        **kwargs: Unpack['StoreFileOptions'],
     ):
         """Stores text as the object's content."""
         return self.store_bytes(text.encode(encoding), variant, **kwargs)
