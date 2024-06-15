@@ -10,7 +10,7 @@ from queue import Queue
 from threading import Thread
 from uuid import UUID
 
-from .errors import NoviError, handle_error
+from .errors import NoviError, PreconditionFailedError, handle_error
 from .identity import Identity
 from .misc import (
     uuid_from_pb,
@@ -396,10 +396,13 @@ class Session:
                 if wrap_session is not None:
                     with self.client.session(mode=wrap_session) as session:
                         if latest:
-                            object = session.get_object(
-                                uuid_from_pb(event.object.id),
-                                precondition=filter if recheck else None,
-                            )
+                            try:
+                                object = session.get_object(
+                                    uuid_from_pb(event.object.id),
+                                    precondition=filter if recheck else None,
+                                )
+                            except PreconditionFailedError:
+                                continue
                         else:
                             object = session._new_object(event.object)
 

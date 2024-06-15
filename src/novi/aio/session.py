@@ -6,7 +6,7 @@ import inspect
 from asyncio import Task, Queue
 from contextlib import asynccontextmanager
 
-from ..errors import NoviError, handle_error
+from ..errors import NoviError, PreconditionFailedError, handle_error
 from ..identity import Identity
 from ..misc import mock_as_coro, mock_with_return, uuid_from_pb
 from ..model import EventKind, SessionMode, SubscribeEvent
@@ -146,10 +146,13 @@ class Session(SyncSession):
                         mode=wrap_session
                     ) as session:
                         if latest:
-                            object = session.get_object(
-                                uuid_from_pb(event.object.id),
-                                precondition=filter if recheck else None,
-                            )
+                            try:
+                                object = session.get_object(
+                                    uuid_from_pb(event.object.id),
+                                    precondition=filter if recheck else None,
+                                )
+                            except PreconditionFailedError:
+                                continue
                         else:
                             object = session._new_object(event.object)
 
