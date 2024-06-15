@@ -62,6 +62,7 @@ class WrapFunctionOptions(TypedDict, total=False):
 
 
 class PutFileOptions(TypedDict, total=False):
+    local: str | None
     path: Path | str | None
     url: str | None
 
@@ -723,15 +724,21 @@ class Session:
     def _verify_put_file_options(
         self, options: PutFileOptions
     ) -> dict[str, str]:
-        path, url = options.get('path'), options.get('url')
-        if path is not None:
-            if url is not None:
-                raise ValueError('cannot specify both path and url')
+        if len(options) > 1:
+            raise ValueError('cannot specify multiple file sources')
+        elif len(options) == 0:
+            raise ValueError('must specify a file source')
+
+        if local := options.get('local'):
+            return {'local': local}
+
+        if path := options.get('path'):
             return {'path': str(path)}
-        elif url is not None:
+
+        if url := options.get('url'):
             return {'url': url}
-        else:
-            raise ValueError('must specify either path or url')
+
+        raise ValueError('must specify a file source')
 
     def put_file(self, **kwargs: Unpack[PutFileOptions]) -> PutFileResponse:
         args = self._verify_put_file_options(kwargs)
