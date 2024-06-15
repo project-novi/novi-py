@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 from uuid import UUID
 
 from .errors import InvalidArgumentError
-from .misc import uuid_from_pb, dt_from_timestamp, rfc3339
+from .misc import auto_map, uuid_from_pb, dt_from_timestamp, rfc3339
 from .model import TagDict, TagValue, Tags
 from .proto import novi_pb2
 
@@ -237,7 +237,10 @@ class Object(BaseObject):
         self, variant: str = 'original', **kwargs: Unpack['StoreFileOptions']
     ):
         """Stores a file or URL as the object's content."""
-        return self.session.store_file(self.id, variant, **kwargs)
+        return auto_map(
+            self.session.store_file(self.id, variant, **kwargs),
+            lambda _: self.assign(self.session.get_object(self.id)),
+        )
 
     def store_bytes(
         self,
