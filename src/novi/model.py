@@ -73,4 +73,4 @@ class HookAction:
 class SubscribeEvent(Generic[T]):
     object: T
     kind: EventKind
-    session: 'Session | None'
+    session: 'Session | None' = None

@@ -1,7 +1,6 @@
 import grpc
 import inspect
 import json
-import sys
 
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -15,7 +14,6 @@ from uuid import UUID
 from .errors import NoviError, PreconditionFailedError, handle_error
 from .identity import Identity
 from .misc import (
-    uuid_from_pb,
     uuid_to_pb,
     dt_to_timestamp,
     tags_to_pb,
@@ -382,6 +380,25 @@ class Session:
             accept_kinds=[kind.value for kind in accept_kinds],
         )
 
+    def _sync_sub_object(
+        self,
+        session: 'Session',
+        object: BaseObject,
+        filter: str,
+        latest: bool,
+        recheck: bool,
+    ) -> Object:
+        if latest:
+            try:
+                return session.get_object(
+                    object.id,
+                    precondition=filter if recheck else None,
+                )
+            except PreconditionFailedError:
+                return None
+        else:
+            return object.with_session(session)
+
     # On edit, please also edit its async version
     @mock_with_return(
         _subscribe_request,
@@ -404,35 +421,16 @@ class Session:
         try:
             for event in it:
                 kind = EventKind(event.kind)
+                object = BaseObject.from_pb(event.object)
                 if wrap_session is not None:
-                    session = self.client.session(mode=wrap_session)
-                    if parallel is None:
-                        session.__enter__()
-
-                    exc_info = None, None, None
-                    try:
-                        if latest:
-                            try:
-                                object = session.get_object(
-                                    uuid_from_pb(event.object.id),
-                                    precondition=filter if recheck else None,
-                                )
-                            except PreconditionFailedError:
-                                continue
-                        else:
-                            object = session._new_object(event.object)
-
+                    with self.client.session(mode=wrap_session) as session:
+                        object = self._sync_sub_object(
+                            session, object, filter, latest, recheck
+                        )
                         yield SubscribeEvent(object, kind, session)
-                    except:  # noqa: E722
-                        exc_info = sys.exc_info()
-                    finally:
-                        if parallel is None:
-                            session.__exit__(*exc_info)
 
                 else:
-                    yield SubscribeEvent(
-                        BaseObject.from_pb(event.object), kind, session
-                    )
+                    yield SubscribeEvent(object, kind)
         except grpc.RpcError as e:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
@@ -445,14 +443,28 @@ class Session:
         parallel: int | None = None,
         **kwargs,
     ):
+        wrap_session = kwargs.get('wrap_session')
+        if parallel is not None:
+            kwargs['wrap_session'] = None
+
         def worker():
             sem = Semaphore(parallel) if parallel is not None else None
+            latest = kwargs.get('latest', True)
+            recheck = kwargs.get('recheck', True)
 
             def task(event: SubscribeEvent):
                 sem.acquire()
                 try:
-                    if event.session:
-                        with event.session:
+                    if wrap_session is not None:
+                        with self.client.session(mode=wrap_session) as session:
+                            event.session = session
+                            event.object = self._sync_sub_object(
+                                event.session,
+                                event.object,
+                                filter,
+                                latest,
+                                recheck,
+                            )
                             callback(event)
                     else:
                         callback(event)
@@ -460,9 +472,7 @@ class Session:
                     sem.release()
 
             try:
-                for event in self.subscribe_stream(
-                    filter, parallel=parallel, **kwargs
-                ):
+                for event in self.subscribe_stream(filter, **kwargs):
                     if parallel is None:
                         callback(event)
                     else:

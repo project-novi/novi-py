@@ -140,7 +140,7 @@ class BaseObject:
         self.created = other.created
         self.updated = other.updated
 
-    def withsession(self, session: 'Session') -> 'Object':
+    def with_session(self, session: 'Session') -> 'Object':
         obj = Object(
             id=self.id,
             tags=self.tags,

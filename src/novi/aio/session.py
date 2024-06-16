@@ -2,14 +2,13 @@ import aiohttp
 import asyncio
 import grpc
 import inspect
-import sys
 
 from asyncio import Task, Queue, Semaphore
 from contextlib import asynccontextmanager
 
 from ..errors import NoviError, PreconditionFailedError, handle_error
 from ..identity import Identity
-from ..misc import mock_as_coro, mock_with_return, uuid_from_pb
+from ..misc import mock_as_coro, mock_with_return
 from ..model import EventKind, SessionMode, SubscribeEvent
 from ..object import BaseObject
 from ..proto import novi_pb2
@@ -125,6 +124,24 @@ class Session(SyncSession):
     def query_one(self, *args, **kwargs):
         return super().query_one(*args, **kwargs)
 
+    async def _sync_sub_object(
+        self,
+        session: 'Session',
+        object: BaseObject,
+        latest: bool,
+        recheck: bool,
+    ) -> Object:
+        if latest:
+            try:
+                return await session.get_object(
+                    object.id,
+                    precondition=filter if recheck else None,
+                )
+            except PreconditionFailedError:
+                return None
+        else:
+            return object.with_session(session)
+
     @mock_with_return(
         SyncSession.subscribe_stream,
         AsyncIterator[SubscribeEvent],
@@ -146,35 +163,18 @@ class Session(SyncSession):
         try:
             async for event in it:
                 kind = EventKind(event.kind)
+                object = BaseObject.from_pb(event.object)
                 if wrap_session is not None:
-                    session = await self.client.session(mode=wrap_session)
-                    if parallel is None:
-                        await session.__aenter__()
-
-                    exc_info = None, None, None
-                    try:
-                        if latest:
-                            try:
-                                object = session.get_object(
-                                    uuid_from_pb(event.object.id),
-                                    precondition=filter if recheck else None,
-                                )
-                            except PreconditionFailedError:
-                                continue
-                        else:
-                            object = session._new_object(event.object)
-
+                    async with await self.client.session(
+                        mode=wrap_session
+                    ) as session:
+                        object = await self._sync_sub_object(
+                            session, object, latest, recheck
+                        )
                         yield SubscribeEvent(object, kind, session)
-                    except:  # noqa: E722
-                        exc_info = sys.exc_info()
-                    finally:
-                        if parallel is None:
-                            await session.__aexit__(*exc_info)
 
                 else:
-                    yield SubscribeEvent(
-                        BaseObject.from_pb(event.object), kind, session
-                    )
+                    yield SubscribeEvent(object, kind)
         except grpc.RpcError as e:
             if e.code() != grpc.StatusCode.CANCELLED:
                 raise NoviError.from_grpc(e) from None
@@ -187,14 +187,26 @@ class Session(SyncSession):
         parallel: int | None = None,
         **kwargs,
     ):
+        wrap_session = kwargs.get('wrap_session')
+        if parallel is not None:
+            kwargs['wrap_session'] = None
+
         async def worker():
             sem = Semaphore(parallel) if parallel is not None else None
+            latest = kwargs.get('latest', True)
+            recheck = kwargs.get('recheck', True)
 
             async def task(event):
                 sem.acquire()
                 try:
-                    if event.session:
-                        async with event.session:
+                    if wrap_session is not None:
+                        async with await self.client.session(
+                            mode=wrap_session
+                        ) as session:
+                            event.session = session
+                            event.object = await self._sync_sub_object(
+                                event.session, event.object, latest, recheck
+                            )
                             resp = callback(event)
                             if inspect.isawaitable(resp):
                                 await resp
