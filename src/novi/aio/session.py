@@ -171,7 +171,8 @@ class Session(SyncSession):
                         object = await self._sync_sub_object(
                             session, object, latest, recheck
                         )
-                        yield SubscribeEvent(object, kind, session)
+                        if object is not None:
+                            yield SubscribeEvent(object, kind, session)
 
                 else:
                     yield SubscribeEvent(object, kind)
@@ -207,9 +208,10 @@ class Session(SyncSession):
                             event.object = await self._sync_sub_object(
                                 event.session, event.object, latest, recheck
                             )
-                            resp = callback(event)
-                            if inspect.isawaitable(resp):
-                                await resp
+                            if event.object is not None:
+                                resp = callback(event)
+                                if inspect.isawaitable(resp):
+                                    await resp
                     else:
                         resp = callback(event)
                         if inspect.isawaitable(resp):

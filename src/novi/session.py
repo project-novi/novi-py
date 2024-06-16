@@ -416,7 +416,8 @@ class Session:
                         object = self._sync_sub_object(
                             session, object, filter, latest, recheck
                         )
-                        yield SubscribeEvent(object, kind, session)
+                        if object is not None:
+                            yield SubscribeEvent(object, kind, session)
 
                 else:
                     yield SubscribeEvent(object, kind)
@@ -454,7 +455,8 @@ class Session:
                                 latest,
                                 recheck,
                             )
-                            callback(event)
+                            if event.object is not None:
+                                callback(event)
                     else:
                         callback(event)
                 finally:
