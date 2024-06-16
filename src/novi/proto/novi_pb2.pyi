@@ -298,14 +298,12 @@ class SubscribeRequest(_message.Message):
     def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., accept_kinds: _Optional[_Iterable[_Union[EventKind, str]]] = ...) -> None: ...
 
 class SubscribeReply(_message.Message):
-    __slots__ = ("object", "kind", "session")
+    __slots__ = ("object", "kind")
     OBJECT_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
-    SESSION_FIELD_NUMBER: _ClassVar[int]
     object: Object
     kind: EventKind
-    session: str
-    def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ..., kind: _Optional[_Union[EventKind, str]] = ..., session: _Optional[str] = ...) -> None: ...
+    def __init__(self, object: _Optional[_Union[Object, _Mapping]] = ..., kind: _Optional[_Union[EventKind, str]] = ...) -> None: ...
 
 class ObjectEdits(_message.Message):
     __slots__ = ("deletes", "update", "clear")
