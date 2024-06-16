@@ -40,7 +40,6 @@ from typing import (
     ParamSpec,
     TypedDict,
     TypeVar,
-    get_origin,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack
@@ -100,7 +99,6 @@ def _wrap_function(
     func,
     wrap: bool = True,
     decode_model: bool = True,
-    check_type: bool = True,
     includes: list[str] = ['session', 'original_result'],
     filter_arguments: bool = True,
 ):
@@ -114,21 +112,7 @@ def _wrap_function(
                     continue
 
                 val = arguments[arg]
-                if not isinstance(val, get_origin(ty) or ty):
-                    continue
                 arguments[arg] = TypeAdapter(ty).validate_python(val)
-
-        if check_type:
-            for arg in inspect.getfullargspec(func)[0]:
-                if arg not in arguments:
-                    continue
-
-                val = arguments[arg]
-                ty = func.__annotations__.get(arg, None)
-                if not isinstance(val, get_origin(ty) or ty):
-                    raise TypeError(
-                        f'expected {ty} for argument {arg!r}, got {type(val)}'
-                    )
 
         for include in includes:
             if include in kwargs:
