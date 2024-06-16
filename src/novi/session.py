@@ -455,7 +455,7 @@ class Session:
 
             try:
                 for event in self.subscribe_stream(
-                    filter, paralle=parallel, **kwargs
+                    filter, parallel=parallel, **kwargs
                 ):
                     if parallel:
                         self._spawn_worker(task, event)
