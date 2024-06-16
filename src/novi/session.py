@@ -1,6 +1,7 @@
 import grpc
 import inspect
 import json
+import sys
 
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -190,7 +191,7 @@ class Session:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self._entered:
-            raise RuntimeError('session not entered')
+            return
 
         return self.end(exc_type is None)
 
@@ -202,8 +203,8 @@ class Session:
             lambda _: None,
         )
 
-    def _spawn_worker(self, target, **kwargs):
-        worker = Thread(target=target, **kwargs)
+    def _spawn_worker(self, target, *args, **kwargs):
+        worker = Thread(target=target, args=args, kwargs=kwargs)
         self._workers.append(worker)
         worker.start()
 
@@ -393,6 +394,7 @@ class Session:
         wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
+        parallel: bool = False,
         **kwargs,
     ):
         it = self._send(
@@ -403,7 +405,12 @@ class Session:
             for event in it:
                 kind = EventKind(event.kind)
                 if wrap_session is not None:
-                    with self.client.session(mode=wrap_session) as session:
+                    session = self.client.session(mode=wrap_session)
+                    if not parallel:
+                        session.__enter__()
+
+                    exc_info = None, None, None
+                    try:
                         if latest:
                             try:
                                 object = session.get_object(
@@ -416,6 +423,11 @@ class Session:
                             object = session._new_object(event.object)
 
                         yield SubscribeEvent(object, kind, session)
+                    except:  # noqa: E722
+                        exc_info = sys.exc_info()
+                    finally:
+                        if not parallel:
+                            session.__exit__(*exc_info)
 
                 else:
                     yield SubscribeEvent(
@@ -430,12 +442,25 @@ class Session:
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
+        parallel: bool = False,
         **kwargs,
     ):
         def worker():
-            try:
-                for event in self.subscribe_stream(filter, **kwargs):
+            def task(event: SubscribeEvent):
+                if event.session:
+                    with event.session:
+                        callback(event)
+                else:
                     callback(event)
+
+            try:
+                for event in self.subscribe_stream(
+                    filter, paralle=parallel, **kwargs
+                ):
+                    if parallel:
+                        self._spawn_worker(task, event)
+                    else:
+                        callback(event)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise

@@ -2,6 +2,7 @@ import aiohttp
 import asyncio
 import grpc
 import inspect
+import sys
 
 from asyncio import Task, Queue
 from contextlib import asynccontextmanager
@@ -70,6 +71,9 @@ class Session(SyncSession):
         return super().__enter__()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._entered:
+            return
+
         return await super().__exit__(exc_type, exc_val, exc_tb)
 
     def _spawn_task(self, coro):
@@ -132,6 +136,7 @@ class Session(SyncSession):
         wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
+        parallel: bool = False,
         **kwargs,
     ):
         it = super()._send(
@@ -142,9 +147,12 @@ class Session(SyncSession):
             async for event in it:
                 kind = EventKind(event.kind)
                 if wrap_session is not None:
-                    async with await self.client.session(
-                        mode=wrap_session
-                    ) as session:
+                    session = await self.client.session(mode=wrap_session)
+                    if not parallel:
+                        await session.__aenter__()
+
+                    exc_info = None, None, None
+                    try:
                         if latest:
                             try:
                                 object = session.get_object(
@@ -157,6 +165,11 @@ class Session(SyncSession):
                             object = session._new_object(event.object)
 
                         yield SubscribeEvent(object, kind, session)
+                    except:  # noqa: E722
+                        exc_info = sys.exc_info()
+                    finally:
+                        if not parallel:
+                            await session.__aexit__(*exc_info)
 
                 else:
                     yield SubscribeEvent(
@@ -171,14 +184,29 @@ class Session(SyncSession):
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
+        parallel: bool = False,
         **kwargs,
     ):
         async def worker():
-            try:
-                async for event in self.subscribe_stream(filter, **kwargs):
+            async def task(event):
+                if event.session:
+                    async with event.session:
+                        resp = callback(event)
+                        if inspect.isawaitable(resp):
+                            await resp
+                else:
                     resp = callback(event)
                     if inspect.isawaitable(resp):
                         await resp
+
+            try:
+                async for event in self.subscribe_stream(
+                    filter, parallel=parallel, **kwargs
+                ):
+                    if parallel:
+                        self._spawn_task(task(event))
+                    else:
+                        await task(event)
 
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:

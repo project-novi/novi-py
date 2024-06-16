@@ -30,7 +30,7 @@ def _wrap_subscriber_cb(cb):
         if event.session is not None:
             event.session.identity = get_identity()
 
-        return cb(event)
+        cb(event)
 
     return wrapper
 
@@ -241,6 +241,7 @@ def fix(filter: str, **kwargs):
             _wrap_subscriber_cb(cb),
             checkpoint=_min_utc,
             wrap_session=SessionMode.AUTO,
+            parallel=True,
             **kwargs,
         )
 
