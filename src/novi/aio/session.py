@@ -195,14 +195,17 @@ class Session(SyncSession):
         await reply_stream.read()
 
         async def worker():
+            async def task_main(reply):
+                resp = callback(reply)
+                if inspect.isawaitable(resp):
+                    await resp
+
+                await q.put(resp)
+
             try:
                 while True:
                     reply = await reply_stream.read()
-                    resp = callback(reply)
-                    if inspect.isawaitable(resp):
-                        await resp
-
-                    await q.put(resp)
+                    asyncio.create_task(task_main(reply))
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None

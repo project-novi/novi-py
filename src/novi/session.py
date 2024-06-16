@@ -504,10 +504,13 @@ class Session:
         next(reply_stream)
 
         def worker():
+            def thread_main(reply):
+                resp = callback(reply)
+                q.put(resp)
+
             try:
                 for reply in reply_stream:
-                    resp = callback(reply)
-                    q.put(resp)
+                    Thread(target=thread_main, args=(reply,)).start()
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise NoviError.from_grpc(e) from None
