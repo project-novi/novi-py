@@ -272,6 +272,10 @@ class Session(SyncSession):
     def register_function(self, *args, **kwargs):
         return super().register_function(*args, **kwargs)
 
+    @mock_as_coro(SyncSession.call_function)
+    def call_function(self, *args, **kwargs):
+        return super().call_function(*args, **kwargs)
+
     @mock_as_coro(SyncSession.get_object_url)
     def get_object_url(self, *args, **kwargs):
         return super().get_object_url(*args, **kwargs)
