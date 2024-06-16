@@ -193,6 +193,10 @@ class Session:
 
         return self.end(exc_type is None)
 
+    def persist(self) -> 'Session':
+        self._entered = False
+        return Session(self.client, self.token, self.identity)
+
     def end(self, commit=True):
         self._entered = False
         return self._send(
