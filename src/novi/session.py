@@ -40,6 +40,7 @@ from typing import (
     ParamSpec,
     TypedDict,
     TypeVar,
+    get_origin,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack
@@ -113,7 +114,7 @@ def _wrap_function(
                     continue
 
                 val = arguments[arg]
-                if not isinstance(val, ty):
+                if not isinstance(val, get_origin(ty) or ty):
                     continue
                 arguments[arg] = TypeAdapter(ty).validate_python(val)
 
@@ -124,7 +125,7 @@ def _wrap_function(
 
                 val = arguments[arg]
                 ty = func.__annotations__.get(arg, None)
-                if ty and not isinstance(val, ty):
+                if not isinstance(val, get_origin(ty) or ty):
                     raise TypeError(
                         f'expected {ty} for argument {arg!r}, got {type(val)}'
                     )
