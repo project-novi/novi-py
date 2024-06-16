@@ -82,6 +82,10 @@ class Session(SyncSession):
     async def join(self):
         await asyncio.gather(*self._tasks)
 
+    def persist(self) -> 'Session':
+        self._entered = False
+        return Session(self.client, self.token, self.identity)
+
     @mock_as_coro(SyncSession.end)
     def end(self, *args, **kwargs):
         return super().end(*args, **kwargs)
