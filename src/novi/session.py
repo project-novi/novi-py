@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel, TypeAdapter
 from queue import Queue
-from threading import Thread
+from threading import Thread, Semaphore
 from uuid import UUID
 
 from .errors import NoviError, PreconditionFailedError, handle_error
@@ -394,7 +394,7 @@ class Session:
         wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
-        parallel: bool = False,
+        parallel: int | None = None,
         **kwargs,
     ):
         it = self._send(
@@ -406,7 +406,7 @@ class Session:
                 kind = EventKind(event.kind)
                 if wrap_session is not None:
                     session = self.client.session(mode=wrap_session)
-                    if not parallel:
+                    if parallel is None:
                         session.__enter__()
 
                     exc_info = None, None, None
@@ -426,7 +426,7 @@ class Session:
                     except:  # noqa: E722
                         exc_info = sys.exc_info()
                     finally:
-                        if not parallel:
+                        if parallel is None:
                             session.__exit__(*exc_info)
 
                 else:
@@ -442,25 +442,31 @@ class Session:
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
-        parallel: bool = False,
+        parallel: int | None = None,
         **kwargs,
     ):
         def worker():
+            sem = Semaphore(parallel) if parallel is not None else None
+
             def task(event: SubscribeEvent):
-                if event.session:
-                    with event.session:
+                sem.acquire()
+                try:
+                    if event.session:
+                        with event.session:
+                            callback(event)
+                    else:
                         callback(event)
-                else:
-                    callback(event)
+                finally:
+                    sem.release()
 
             try:
                 for event in self.subscribe_stream(
                     filter, parallel=parallel, **kwargs
                 ):
-                    if parallel:
-                        self._spawn_worker(task, event)
-                    else:
+                    if parallel is None:
                         callback(event)
+                    else:
+                        self._spawn_worker(task, event)
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
                     raise

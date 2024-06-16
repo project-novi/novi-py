@@ -4,7 +4,7 @@ import grpc
 import inspect
 import sys
 
-from asyncio import Task, Queue
+from asyncio import Task, Queue, Semaphore
 from contextlib import asynccontextmanager
 
 from ..errors import NoviError, PreconditionFailedError, handle_error
@@ -136,7 +136,7 @@ class Session(SyncSession):
         wrap_session: SessionMode | None = None,
         latest: bool = True,
         recheck: bool = True,
-        parallel: bool = False,
+        parallel: int | None = None,
         **kwargs,
     ):
         it = super()._send(
@@ -148,7 +148,7 @@ class Session(SyncSession):
                 kind = EventKind(event.kind)
                 if wrap_session is not None:
                     session = await self.client.session(mode=wrap_session)
-                    if not parallel:
+                    if parallel is None:
                         await session.__aenter__()
 
                     exc_info = None, None, None
@@ -168,7 +168,7 @@ class Session(SyncSession):
                     except:  # noqa: E722
                         exc_info = sys.exc_info()
                     finally:
-                        if not parallel:
+                        if parallel is None:
                             await session.__aexit__(*exc_info)
 
                 else:
@@ -184,29 +184,35 @@ class Session(SyncSession):
         self,
         filter: str,
         callback: Callable[[SubscribeEvent], None],
-        parallel: bool = False,
+        parallel: int | None = None,
         **kwargs,
     ):
         async def worker():
+            sem = Semaphore(parallel) if parallel is not None else None
+
             async def task(event):
-                if event.session:
-                    async with event.session:
+                sem.acquire()
+                try:
+                    if event.session:
+                        async with event.session:
+                            resp = callback(event)
+                            if inspect.isawaitable(resp):
+                                await resp
+                    else:
                         resp = callback(event)
                         if inspect.isawaitable(resp):
                             await resp
-                else:
-                    resp = callback(event)
-                    if inspect.isawaitable(resp):
-                        await resp
+                finally:
+                    sem.release()
 
             try:
                 async for event in self.subscribe_stream(
                     filter, parallel=parallel, **kwargs
                 ):
-                    if parallel:
-                        self._spawn_task(task(event))
-                    else:
+                    if parallel is None:
                         await task(event)
+                    else:
+                        self._spawn_task(task(event))
 
             except grpc.RpcError as e:
                 if e.code() != grpc.StatusCode.CANCELLED:
