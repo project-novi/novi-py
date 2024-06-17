@@ -8,12 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel, TypeAdapter
 from queue import Queue
-from threading import Thread, Semaphore
+from threading import Lock, Thread, Semaphore
 from uuid import UUID
 
 from .errors import NoviError, PreconditionFailedError, handle_error
 from .identity import Identity
 from .misc import (
+    KeyLock,
     uuid_to_pb,
     dt_to_timestamp,
     tags_to_pb,
@@ -443,13 +444,17 @@ class Session:
             kwargs['wrap_session'] = None
 
         def worker():
+            locks = KeyLock(Lock)
             sem = Semaphore(parallel) if parallel is not None else None
             lock = kwargs.get('lock', ObjectLock.SHARE)
             latest = kwargs.get('latest', True)
             recheck = kwargs.get('recheck', True)
 
             def task(event: SubscribeEvent):
-                sem.acquire()
+                if sem is not None:
+                    sem.acquire()
+                id = event.object.id
+                locks.acquire(id)
                 try:
                     if wrap_session is not None:
                         with self.client.session(mode=wrap_session) as session:
@@ -467,12 +472,14 @@ class Session:
                     else:
                         callback(event)
                 finally:
-                    sem.release()
+                    locks.release(id)
+                    if sem is not None:
+                        sem.release()
 
             try:
                 for event in self.subscribe_stream(filter, **kwargs):
                     if parallel is None:
-                        callback(event)
+                        task(event)
                     else:
                         self._spawn_worker(task, event)
             except grpc.RpcError as e:

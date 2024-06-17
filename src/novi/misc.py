@@ -13,6 +13,29 @@ P = ParamSpec('P')
 R = TypeVar('R')
 
 
+class KeyLock:
+    def __init__(self, lock_class):
+        self._locks = {}
+        self._lock_class = lock_class
+
+    def acquire(self, key):
+        if key not in self._locks:
+            self._locks[key] = (self._lock_class(), 0)
+
+        lock, count = self._locks[key]
+        self._locks[key] = (lock, count + 1)
+        return lock.acquire()
+
+    def release(self, key):
+        lock, count = self._locks[key]
+        result = lock.release()
+        if count == 1:
+            del self._locks[key]
+        else:
+            self._locks[key] = (lock, count - 1)
+        return result
+
+
 def dt_to_timestamp(dt: datetime) -> int:
     return int(dt.timestamp()) * 1_000_000 + dt.microsecond
 

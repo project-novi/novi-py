@@ -3,12 +3,12 @@ import asyncio
 import grpc
 import inspect
 
-from asyncio import Task, Queue, Semaphore
+from asyncio import Lock, Task, Queue, Semaphore
 from contextlib import asynccontextmanager
 
 from ..errors import NoviError, PreconditionFailedError, handle_error
 from ..identity import Identity
-from ..misc import mock_as_coro, mock_with_return
+from ..misc import KeyLock, mock_as_coro, mock_with_return
 from ..model import EventKind, ObjectLock, SessionMode, SubscribeEvent
 from ..object import BaseObject
 from ..proto import novi_pb2
@@ -201,13 +201,17 @@ class Session(SyncSession):
             kwargs['wrap_session'] = None
 
         async def worker():
+            locks = KeyLock(Lock)
             sem = Semaphore(parallel) if parallel is not None else None
             lock = kwargs.get('lock', ObjectLock.SHARE)
             latest = kwargs.get('latest', True)
             recheck = kwargs.get('recheck', True)
 
             async def task(event):
-                sem.acquire()
+                if sem is not None:
+                    sem.acquire()
+                id = event.object.id
+                await locks.acquire(id)
                 try:
                     if wrap_session is not None:
                         async with await self.client.session(
@@ -231,7 +235,9 @@ class Session(SyncSession):
                         if inspect.isawaitable(resp):
                             await resp
                 finally:
-                    sem.release()
+                    locks.release(id)
+                    if sem is not None:
+                        sem.release()
 
             try:
                 async for event in self.subscribe_stream(
