@@ -8,23 +8,32 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 class SessionMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    AUTO: _ClassVar[SessionMode]
-    READ_ONLY: _ClassVar[SessionMode]
-    READ_WRITE: _ClassVar[SessionMode]
-    IMMEDIATE: _ClassVar[SessionMode]
+    SESSION_AUTO: _ClassVar[SessionMode]
+    SESSION_READ_ONLY: _ClassVar[SessionMode]
+    SESSION_READ_WRITE: _ClassVar[SessionMode]
+    SESSION_IMMEDIATE: _ClassVar[SessionMode]
+
+class ObjectLock(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOCK_NONE: _ClassVar[ObjectLock]
+    LOCK_SHARE: _ClassVar[ObjectLock]
+    LOCK_EXCLUSIVE: _ClassVar[ObjectLock]
 
 class EventKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    CREATE: _ClassVar[EventKind]
-    UPDATE: _ClassVar[EventKind]
-    DELETE: _ClassVar[EventKind]
-AUTO: SessionMode
-READ_ONLY: SessionMode
-READ_WRITE: SessionMode
-IMMEDIATE: SessionMode
-CREATE: EventKind
-UPDATE: EventKind
-DELETE: EventKind
+    EVENT_CREATE: _ClassVar[EventKind]
+    EVENT_UPDATE: _ClassVar[EventKind]
+    EVENT_DELETE: _ClassVar[EventKind]
+SESSION_AUTO: SessionMode
+SESSION_READ_ONLY: SessionMode
+SESSION_READ_WRITE: SessionMode
+SESSION_IMMEDIATE: SessionMode
+LOCK_NONE: ObjectLock
+LOCK_SHARE: ObjectLock
+LOCK_EXCLUSIVE: ObjectLock
+EVENT_CREATE: EventKind
+EVENT_UPDATE: EventKind
+EVENT_DELETE: EventKind
 
 class Error(_message.Message):
     __slots__ = ("kind", "message", "metadata")
@@ -181,9 +190,9 @@ class GetObjectRequest(_message.Message):
     LOCK_FIELD_NUMBER: _ClassVar[int]
     PRECONDITION_FIELD_NUMBER: _ClassVar[int]
     id: UUID
-    lock: bool
+    lock: ObjectLock
     precondition: str
-    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., lock: bool = ..., precondition: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[_Union[UUID, _Mapping]] = ..., lock: _Optional[_Union[ObjectLock, str]] = ..., precondition: _Optional[str] = ...) -> None: ...
 
 class GetObjectReply(_message.Message):
     __slots__ = ("object",)
@@ -278,8 +287,8 @@ class QueryRequest(_message.Message):
     created_before: int
     order: QueryRequest.Order
     limit: int
-    lock: bool
-    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., updated_after: _Optional[int] = ..., updated_before: _Optional[int] = ..., created_after: _Optional[int] = ..., created_before: _Optional[int] = ..., order: _Optional[_Union[QueryRequest.Order, str]] = ..., limit: _Optional[int] = ..., lock: bool = ...) -> None: ...
+    lock: ObjectLock
+    def __init__(self, filter: _Optional[str] = ..., checkpoint: _Optional[int] = ..., updated_after: _Optional[int] = ..., updated_before: _Optional[int] = ..., created_after: _Optional[int] = ..., created_before: _Optional[int] = ..., order: _Optional[_Union[QueryRequest.Order, str]] = ..., limit: _Optional[int] = ..., lock: _Optional[_Union[ObjectLock, str]] = ...) -> None: ...
 
 class QueryReply(_message.Message):
     __slots__ = ("objects",)

@@ -28,6 +28,12 @@ class SessionMode(Enum):
     IMMEDIATE = 3
 
 
+class ObjectLock(Enum):
+    NONE = 0
+    SHARE = 1
+    EXCLUSIVE = 2
+
+
 class QueryOrder(Enum):
     CREATED_DESC = 0
     CREATED_ASC = 1

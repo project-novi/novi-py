@@ -25,6 +25,7 @@ from .model import (
     HookAction,
     HookPoint,
     QueryOrder,
+    ObjectLock,
     SessionMode,
     SubscribeEvent,
     Tags,
@@ -233,7 +234,7 @@ class Session:
     def get_object(
         self,
         id: UUID | str,
-        lock: bool = True,
+        lock: ObjectLock = ObjectLock.SHARE,
         precondition: str | None = None,
     ) -> Object:
         if isinstance(id, str):
@@ -242,7 +243,7 @@ class Session:
         return self._send(
             self.client._stub.GetObject,
             novi_pb2.GetObjectRequest(
-                id=uuid_to_pb(id), lock=lock, precondition=precondition
+                id=uuid_to_pb(id), lock=lock.value, precondition=precondition
             ),
             lambda reply: self._new_object(reply.object),
         )
@@ -321,7 +322,7 @@ class Session:
         created_before: datetime | None = None,
         order: QueryOrder = QueryOrder.CREATED_DESC,
         limit: int | None = 30,
-        lock: bool = False,
+        lock: ObjectLock = ObjectLock.SHARE,
     ) -> list[Object]:
         def to_timestamp(dt: datetime | None):
             return None if dt is None else dt_to_timestamp(dt)
@@ -337,7 +338,7 @@ class Session:
                 created_before=to_timestamp(created_before),
                 order=order.value,
                 limit=limit,
-                lock=lock,
+                lock=lock.value,
             ),
             lambda reply: [self._new_object(obj) for obj in reply.objects],
         )
@@ -358,6 +359,7 @@ class Session:
         },
         # used for mocking
         wrap_session: SessionMode | None = None,
+        lock: ObjectLock = ObjectLock.SHARE,
         latest: bool = True,
         recheck: bool = True,
     ):
@@ -374,6 +376,7 @@ class Session:
         session: 'Session',
         object: BaseObject,
         filter: str,
+        lock: ObjectLock,
         latest: bool,
         recheck: bool,
     ) -> Object:
@@ -382,6 +385,7 @@ class Session:
                 return session.get_object(
                     object.id,
                     precondition=filter if recheck else None,
+                    lock=lock,
                 )
             except PreconditionFailedError:
                 return None
@@ -398,6 +402,7 @@ class Session:
         filter: str,
         *args,
         wrap_session: SessionMode | None = None,
+        lock: ObjectLock = ObjectLock.SHARE,
         latest: bool = True,
         recheck: bool = True,
         parallel: int | None = None,
@@ -414,7 +419,7 @@ class Session:
                 if wrap_session is not None:
                     with self.client.session(mode=wrap_session) as session:
                         object = self._sync_sub_object(
-                            session, object, filter, latest, recheck
+                            session, object, filter, lock, latest, recheck
                         )
                         if object is not None:
                             yield SubscribeEvent(object, kind, session)
@@ -439,6 +444,7 @@ class Session:
 
         def worker():
             sem = Semaphore(parallel) if parallel is not None else None
+            lock = kwargs.get('lock', ObjectLock.SHARE)
             latest = kwargs.get('latest', True)
             recheck = kwargs.get('recheck', True)
 
@@ -452,6 +458,7 @@ class Session:
                                 event.session,
                                 event.object,
                                 filter,
+                                lock,
                                 latest,
                                 recheck,
                             )

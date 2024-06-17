@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from ..errors import NoviError, PreconditionFailedError, handle_error
 from ..identity import Identity
 from ..misc import mock_as_coro, mock_with_return
-from ..model import EventKind, SessionMode, SubscribeEvent
+from ..model import EventKind, ObjectLock, SessionMode, SubscribeEvent
 from ..object import BaseObject
 from ..proto import novi_pb2
 from ..session import Session as SyncSession
@@ -132,6 +132,8 @@ class Session(SyncSession):
         self,
         session: 'Session',
         object: BaseObject,
+        filter: str,
+        lock: ObjectLock,
         latest: bool,
         recheck: bool,
     ) -> Object:
@@ -140,6 +142,7 @@ class Session(SyncSession):
                 return await session.get_object(
                     object.id,
                     precondition=filter if recheck else None,
+                    lock=lock,
                 )
             except PreconditionFailedError:
                 return None
@@ -155,6 +158,7 @@ class Session(SyncSession):
         filter: str,
         *args,
         wrap_session: SessionMode | None = None,
+        lock: ObjectLock = ObjectLock.SHARE,
         latest: bool = True,
         recheck: bool = True,
         parallel: int | None = None,
@@ -173,7 +177,7 @@ class Session(SyncSession):
                         mode=wrap_session
                     ) as session:
                         object = await self._sync_sub_object(
-                            session, object, latest, recheck
+                            session, object, filter, lock, latest, recheck
                         )
                         if object is not None:
                             yield SubscribeEvent(object, kind, session)
@@ -198,6 +202,7 @@ class Session(SyncSession):
 
         async def worker():
             sem = Semaphore(parallel) if parallel is not None else None
+            lock = kwargs.get('lock', ObjectLock.SHARE)
             latest = kwargs.get('latest', True)
             recheck = kwargs.get('recheck', True)
 
@@ -210,7 +215,12 @@ class Session(SyncSession):
                         ) as session:
                             event.session = session
                             event.object = await self._sync_sub_object(
-                                event.session, event.object, latest, recheck
+                                event.session,
+                                event.object,
+                                filter,
+                                lock,
+                                latest,
+                                recheck,
                             )
                             if event.object is not None:
                                 resp = callback(event)
