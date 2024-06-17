@@ -413,12 +413,14 @@ class Session:
             self.client._stub.Subscribe,
             self._subscribe_request(filter, *args, **kwargs),
         )
+        identity = self.identity
         try:
             for event in it:
                 kind = EventKind(event.kind)
                 object = BaseObject.from_pb(event.object)
                 if wrap_session is not None:
                     with self.client.session(mode=wrap_session) as session:
+                        session.identity = identity
                         object = self._sync_sub_object(
                             session, object, filter, lock, latest, recheck
                         )
@@ -443,6 +445,8 @@ class Session:
         if parallel is not None:
             kwargs['wrap_session'] = None
 
+        identity = self.identity
+
         def worker():
             locks = KeyLock(Lock)
             sem = Semaphore(parallel) if parallel is not None else None
@@ -458,6 +462,7 @@ class Session:
                 try:
                     if wrap_session is not None:
                         with self.client.session(mode=wrap_session) as session:
+                            session.identity = identity
                             event.session = session
                             event.object = self._sync_sub_object(
                                 event.session,

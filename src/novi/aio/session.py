@@ -168,6 +168,7 @@ class Session(SyncSession):
             self.client._stub.Subscribe,
             self._subscribe_request(filter, *args, **kwargs),
         )
+        identity = self.identity
         try:
             async for event in it:
                 kind = EventKind(event.kind)
@@ -176,6 +177,7 @@ class Session(SyncSession):
                     async with await self.client.session(
                         mode=wrap_session
                     ) as session:
+                        session.identity = identity
                         object = await self._sync_sub_object(
                             session, object, filter, lock, latest, recheck
                         )
@@ -200,6 +202,8 @@ class Session(SyncSession):
         if parallel is not None:
             kwargs['wrap_session'] = None
 
+        identity = self.identity
+
         async def worker():
             locks = KeyLock(Lock)
             sem = Semaphore(parallel) if parallel is not None else None
@@ -217,6 +221,7 @@ class Session(SyncSession):
                         async with await self.client.session(
                             mode=wrap_session
                         ) as session:
+                            session.identity = identity
                             event.session = session
                             event.object = await self._sync_sub_object(
                                 event.session,
