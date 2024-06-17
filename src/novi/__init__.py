@@ -1,7 +1,15 @@
 from .client import Client
 from .errors import NoviError
 from .identity import Identity
-from .model import EventKind, HookAction, HookPoint, QueryOrder, SessionMode, SubscribeEvent
+from .model import (
+    EventKind,
+    HookAction,
+    HookPoint,
+    ObjectLock,
+    QueryOrder,
+    SessionMode,
+    SubscribeEvent,
+)
 from .object import (
     BaseObject,
     Object,
@@ -24,6 +32,7 @@ __all__ = [
     'NoviError',
     'Object',
     'ObjectFormat',
+    'ObjectLock',
     'QueryOrder',
     'Session',
     'SessionMode',
