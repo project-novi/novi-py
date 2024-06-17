@@ -241,7 +241,7 @@ def fix(filter: str, **kwargs):
             _wrap_subscriber_cb(cb),
             checkpoint=_min_utc,
             wrap_session=kwargs.pop('wrap_session', SessionMode.AUTO),
-            parallel=kwargs.pop('parallel', 1),
+            parallel=kwargs.pop('parallel', 8),
             lock=kwargs.pop('lock', ObjectLock.EXCLUSIVE),
             **kwargs,
         )
