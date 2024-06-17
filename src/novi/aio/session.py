@@ -212,10 +212,10 @@ class Session(SyncSession):
             recheck = kwargs.get('recheck', True)
 
             async def task(event):
-                if sem is not None:
-                    sem.acquire()
                 id = event.object.id
                 await locks.acquire(id)
+                if sem is not None:
+                    sem.acquire()
                 try:
                     if wrap_session is not None:
                         async with await self.client.session(
@@ -240,9 +240,9 @@ class Session(SyncSession):
                         if inspect.isawaitable(resp):
                             await resp
                 finally:
-                    locks.release(id)
                     if sem is not None:
                         sem.release()
+                    locks.release(id)
 
             try:
                 async for event in self.subscribe_stream(

@@ -455,10 +455,10 @@ class Session:
             recheck = kwargs.get('recheck', True)
 
             def task(event: SubscribeEvent):
-                if sem is not None:
-                    sem.acquire()
                 id = event.object.id
                 locks.acquire(id)
+                if sem is not None:
+                    sem.acquire()
                 try:
                     if wrap_session is not None:
                         with self.client.session(mode=wrap_session) as session:
@@ -477,9 +477,9 @@ class Session:
                     else:
                         callback(event)
                 finally:
-                    locks.release(id)
                     if sem is not None:
                         sem.release()
+                    locks.release(id)
 
             try:
                 for event in self.subscribe_stream(filter, **kwargs):
