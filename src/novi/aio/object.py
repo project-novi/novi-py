@@ -15,6 +15,10 @@ class Object(SyncObject):
     async def assign(self, coro):
         return super().assign(await coro)
 
+    @mock_as_coro(SyncObject.sync)
+    def sync(self, *args, **kwargs):
+        return super().sync(*args, **kwargs)
+
     @mock_as_coro(SyncObject.set)
     def set(self, *args, **kwargs):
         return super().set(*args, **kwargs)

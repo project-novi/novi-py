@@ -5,7 +5,7 @@ from uuid import UUID
 
 from .errors import InvalidArgumentError
 from .misc import auto_map, uuid_from_pb, dt_from_timestamp, rfc3339
-from .model import TagDict, TagValue, Tags
+from .model import ObjectLock, TagDict, TagValue, Tags
 from .proto import novi_pb2
 
 from collections.abc import Iterator
@@ -182,6 +182,9 @@ class Object(BaseObject):
         obj = super().from_pb(pb)
         obj.session = session
         return obj
+
+    def sync(self, lock: ObjectLock = ObjectLock.EXCLUSIVE):
+        return self.assign(self.session.get_object(self.id, lock))
 
     def set(self, tag: str, value: str | None = None):
         return self.assign(self.session.update_object(self.id, {tag: value}))
