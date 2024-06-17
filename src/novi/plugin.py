@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from .aio import Client as AClient
 from .client import Client
 from .identity import Identity
-from .model import HookPoint, SessionMode, SubscribeEvent
+from .model import HookPoint, ObjectLock, SessionMode, SubscribeEvent
 from .object import BaseObject
 from .session import Session
 
@@ -240,8 +240,9 @@ def fix(filter: str, **kwargs):
             filter,
             _wrap_subscriber_cb(cb),
             checkpoint=_min_utc,
-            wrap_session=SessionMode.AUTO,
-            parallel=kwargs.pop('parallel', 8),
+            wrap_session=kwargs.pop('wrap_session', SessionMode.AUTO),
+            parallel=kwargs.pop('parallel', 1),
+            lock=kwargs.pop('lock', ObjectLock.EXCLUSIVE),
             **kwargs,
         )
 
