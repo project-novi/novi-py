@@ -33,6 +33,9 @@ class ObjectLock(Enum):
     SHARE = 1
     EXCLUSIVE = 2
 
+    def __str__(self):
+        return self.name.lower()
+
 
 class QueryOrder(Enum):
     CREATED_DESC = 0

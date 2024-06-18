@@ -71,6 +71,7 @@ class PutFileOptions(TypedDict, total=False):
 class StoreFileOptions(PutFileOptions, total=False):
     storage: str
     overwrite: bool
+    lock: ObjectLock
 
 
 @dataclass
@@ -750,6 +751,7 @@ class Session:
         id: UUID | str,
         variant: str = 'original',
         resolve_ipfs: bool = True,
+        lock: ObjectLock = ObjectLock.NONE,
     ) -> str:
         def transform(resp):
             url = resp['url']
@@ -765,6 +767,7 @@ class Session:
                 'file.url',
                 id=str(id),
                 variant=variant,
+                lock=str(lock),
             ),
             transform,
         )
@@ -801,7 +804,7 @@ class Session:
             lambda resp: PutFileResponse(url=resp['url']),
         )
 
-    # On edit, please also edit `StoreObjectOptions`
+    # On edit, please also edit `StoreFileOptions`
     def store_file(
         self,
         id: UUID | str,
@@ -809,6 +812,7 @@ class Session:
         *,
         storage: str = 'default',
         overwrite: bool = False,
+        lock: ObjectLock = ObjectLock.EXCLUSIVE,
         **kwargs: Unpack[PutFileOptions],
     ) -> None:
         """Stores a file or URL as the object's content."""
@@ -817,6 +821,7 @@ class Session:
             'variant': variant,
             'storage': storage,
             'overwrite': overwrite,
+            'lock': str(lock),
         }
         args.update(self._verify_put_file_options(kwargs))
 
