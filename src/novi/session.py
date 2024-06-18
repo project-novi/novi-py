@@ -676,6 +676,15 @@ class Session:
     def _function_call(
         self, callback: Callable, reply: novi_pb2.RegFunctionReply
     ):
+        def error_transform():
+            error = NoviError.current('error in function call')
+            return novi_pb2.RegFunctionRequest(
+                result=novi_pb2.RegFunctionRequest.CallResult(
+                    call_id=reply.call_id,
+                    error=error.to_pb(),
+                )
+            )
+
         try:
             session = type(self)(self.client, reply.session)
             session.identity = Identity(reply.identity)
@@ -691,15 +700,10 @@ class Session:
                         response='{}' if x is None else json.dumps(x),
                     )
                 ),
+                error_transform,
             )
         except Exception:
-            error = NoviError.current('error in function call')
-            return novi_pb2.RegFunctionRequest(
-                result=novi_pb2.RegFunctionRequest.CallResult(
-                    call_id=reply.call_id,
-                    error=error.to_pb(),
-                )
-            )
+            return error_transform()
 
     @handle_error
     def register_function(

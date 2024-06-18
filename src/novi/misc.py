@@ -90,11 +90,16 @@ def mock_with_return(f: Callable[P, Any], ret: type[R]) -> Callable[
     return lambda _: _
 
 
-def auto_map(value, transform):
+def auto_map(value, transform, error_transform=None):
     if inspect.isawaitable(value):
 
         async def wrapper():
-            return transform(await value)
+            try:
+                return transform(await value)
+            except Exception:
+                if error_transform is not None:
+                    return error_transform()
+                raise
 
         return wrapper()
 
