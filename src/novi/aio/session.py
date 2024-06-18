@@ -271,7 +271,7 @@ class Session(SyncSession):
             async def task_main(reply):
                 resp = callback(reply)
                 if inspect.isawaitable(resp):
-                    await resp
+                    resp = await resp
 
                 await q.put(resp)
 
