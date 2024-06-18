@@ -235,7 +235,7 @@ class Session:
     def get_object(
         self,
         id: UUID | str,
-        lock: ObjectLock = ObjectLock.SHARE,
+        lock: ObjectLock = ObjectLock.EXCLUSIVE,
         precondition: str | None = None,
     ) -> Object:
         if isinstance(id, str):
