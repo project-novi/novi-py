@@ -7,9 +7,9 @@ authors = [
 ]
 dependencies = [
     "uuid>=1.30",
-    "grpcio-status>=1.64.0",
+    "grpcio-status>=1.60.0",
     "pydantic>=2.7.1",
-    "grpcio>=1.64.0",
+    "grpcio>=1.60.0",
     "pyyaml>=6.0.1",
     "structlog>=24.2.0",
     "aiohttp>=3.9.5",
