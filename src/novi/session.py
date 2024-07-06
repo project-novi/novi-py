@@ -118,10 +118,12 @@ def _wrap_function(
 
         if filter_arguments:
             new_args = {}
-            for arg in inspect.getfullargspec(func)[0]:
-                if arg in arguments:
-                    new_args[arg] = arguments[arg]
-            arguments = new_args
+            spec = inspect.getfullargspec(func)
+            if spec.varkw is None:
+                for arg in spec.args:
+                    if arg in arguments:
+                        new_args[arg] = arguments[arg]
+                arguments = new_args
 
         return func(**arguments)
 
