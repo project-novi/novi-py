@@ -68,7 +68,7 @@ class Client:
         return auto_map(
             self._stub.HasPermission(
                 novi_pb2.HasPermissionRequest(permissions=permission),
-                metadata=(('identity', identity.token),),
+                metadata=(('identity', identity.token),) if identity else (),
             ),
             lambda reply: reply.ok,
         )
