@@ -48,7 +48,7 @@ class Object(SyncObject):
         SyncObject.open, _AsyncGeneratorContextManager[aiohttp.StreamReader]
     )
     async def open(self, *args, **kwargs):
-        url = await self.url(*args, **kwargs)
+        url = self.url(*args, **kwargs)
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 yield resp.content
