@@ -37,7 +37,6 @@ from .proto import novi_pb2
 from collections.abc import Callable, Iterable
 from typing import (
     Any,
-    BinaryIO,
     Concatenate,
     ParamSpec,
     TypedDict,
@@ -48,10 +47,6 @@ from typing_extensions import Unpack
 
 if TYPE_CHECKING:
     from .client import Client
-
-
-class ObjectUrlOptions(TypedDict, total=False):
-    resolve_ipfs: bool
 
 
 class WrapFunctionOptions(TypedDict, total=False):
@@ -748,39 +743,6 @@ class Session:
             ),
             lambda reply: json.loads(reply.result),
         )
-
-    # On edit, please also edit `ObjectUrlOptions`
-    def get_object_url(
-        self,
-        id: UUID | str,
-        variant: str = 'original',
-        resolve_ipfs: bool = True,
-        lock: ObjectLock = ObjectLock.NONE,
-    ) -> str:
-        def transform(resp):
-            url = resp['url']
-            if url.startswith('ipfs://') and resolve_ipfs:
-                from .file import get_ipfs_gateway
-
-                url = get_ipfs_gateway() + '/ipfs/' + url[7:]
-
-            return url
-
-        return auto_map(
-            self.call_function(
-                'file.url',
-                id=str(id),
-                variant=variant,
-                lock=str(lock),
-            ),
-            transform,
-        )
-
-    @mock_with_return(get_object_url, BinaryIO)
-    def open_object(self, *args, **kwargs):
-        from urllib.request import urlopen
-
-        return urlopen(self.get_object_url(*args, **kwargs))
 
     def _verify_put_file_options(
         self, options: PutFileOptions

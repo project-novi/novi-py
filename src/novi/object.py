@@ -3,7 +3,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile
 from uuid import UUID
 
-from .errors import InvalidArgumentError
+from .errors import FileNotFoundError, InvalidArgumentError
 from .misc import auto_map, uuid_from_pb, dt_from_timestamp, rfc3339
 from .model import ObjectLock, TagDict, TagValue, Tags
 from .proto import novi_pb2
@@ -13,16 +13,21 @@ from typing import (
     BinaryIO,
     ClassVar,
     ParamSpec,
+    TypedDict,
     TypeVar,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack
 
 if TYPE_CHECKING:
-    from .session import Session, ObjectUrlOptions, StoreFileOptions
+    from .session import Session, StoreFileOptions
 
 P = ParamSpec('P')
 R = TypeVar('R')
+
+
+class ObjectUrlOptions(TypedDict, total=False):
+    resolve_ipfs: bool
 
 
 class ObjectFormat:
@@ -205,23 +210,38 @@ class Object(BaseObject):
         return self.session.delete_object(self.id)
 
     def url(
-        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+        self,
+        variant: str = 'original',
+        *,
+        resolve_ipfs: bool = True,
     ) -> str:
         """Returns the URL of the object files."""
-        return self.session.get_object_url(self.id, variant, **kwargs)
+        try:
+            url = self[f'@file:{variant}']
+        except KeyError:
+            raise FileNotFoundError(f'variant {variant!r} not found')
+
+        if url.startswith('ipfs://') and resolve_ipfs:
+            from .file import get_ipfs_gateway
+
+            url = get_ipfs_gateway() + '/ipfs/' + url[7:]
+
+        return url
 
     def open(
-        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+        self, variant: str = 'original', **kwargs: Unpack[ObjectUrlOptions]
     ) -> BinaryIO:
         """Opens the object as a file-like object."""
-        return self.session.open_object(self.id, variant, **kwargs)
+        from urllib.request import urlopen
+
+        return urlopen(self.url(variant, **kwargs))
 
     def read_text(
         self,
         variant: str = 'original',
         *,
         encoding: str = 'utf-8',
-        **kwargs: Unpack['ObjectUrlOptions'],
+        **kwargs: Unpack[ObjectUrlOptions],
     ) -> str:
         """Reads the object's content as text."""
 
