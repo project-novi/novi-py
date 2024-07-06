@@ -1,10 +1,8 @@
-import aiohttp
 import asyncio
 import grpc
 import inspect
 
 from asyncio import Lock, Task, Queue, Semaphore
-from contextlib import asynccontextmanager
 
 from ..errors import NoviError, PreconditionFailedError, handle_error
 from ..identity import Identity
@@ -300,20 +298,6 @@ class Session(SyncSession):
     @mock_as_coro(SyncSession.call_function)
     def call_function(self, *args, **kwargs):
         return super().call_function(*args, **kwargs)
-
-    @mock_as_coro(SyncSession.get_object_url)
-    def get_object_url(self, *args, **kwargs):
-        return super().get_object_url(*args, **kwargs)
-
-    @asynccontextmanager
-    @mock_with_return(
-        SyncSession.open_object, AsyncIterator[aiohttp.StreamReader]
-    )
-    async def open_object(self, *args, **kwargs):
-        url = await self.get_object_url(*args, **kwargs)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                yield resp.content
 
     @mock_as_coro(SyncSession.put_file)
     def put_file(self, *args, **kwargs):

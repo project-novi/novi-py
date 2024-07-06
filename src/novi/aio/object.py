@@ -1,5 +1,5 @@
 import aiohttp
-from contextlib import _AsyncGeneratorContextManager
+from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 
 from ..misc import mock_as_coro, mock_with_return
 from ..object import Object as SyncObject, ObjectUrlOptions
@@ -43,11 +43,15 @@ class Object(SyncObject):
     def url(self, *args, **kwargs):
         return super().url(*args, **kwargs)
 
+    @asynccontextmanager
     @mock_with_return(
         SyncObject.open, _AsyncGeneratorContextManager[aiohttp.StreamReader]
     )
-    def open(self, *args, **kwargs):
-        return super().open(*args, **kwargs)
+    async def open(self, *args, **kwargs):
+        url = await self.url(*args, **kwargs)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                yield resp.content
 
     async def read_text(
         self,
