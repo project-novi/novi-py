@@ -69,6 +69,7 @@ def initialize(
     identity: str,
     plugin_dir: Path,
     config_template: Path | None,
+    ipfs_gateway: str,
 ):
     _state.identifier = identifier
     _state.server = server
@@ -79,10 +80,12 @@ def initialize(
             options=(('grpc.default_authority', 'localhost'),),
         )
     )
+    _state.client.set_ipfs_gateway(ipfs_gateway)
     _state.aclient = None
     _state.identity = Identity(identity)
     _state.session = _state.client.temporary_session(identity=_state.identity)
 
+    _state.ipfs_gateway = ipfs_gateway
     _state.plugin_dir = plugin_dir
     _state.config_template = config_template
 
@@ -181,6 +184,7 @@ def get_async_client() -> AClient:
                 options=(('grpc.default_authority', 'localhost'),),
             )
         )
+        _state.aclient.set_ipfs_gateway(_state.ipfs_gateway)
     return _state.aclient
 
 
