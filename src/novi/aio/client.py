@@ -8,7 +8,7 @@ from ..errors import handle_error
 from ..identity import Identity
 from ..misc import mock_as_coro
 from ..model import SessionMode
-from ..proto import novi_pb2, novi_pb2_grpc
+from ..proto import novi_pb2
 from .session import Session
 
 from typing_extensions import Unpack
@@ -16,7 +16,7 @@ from typing_extensions import Unpack
 
 class Client(SyncClient):
     def __init__(self, channel: grpc.aio.Channel):
-        self._stub = novi_pb2_grpc.NoviStub(channel)
+        super().__init__(channel)
 
     @handle_error
     async def login(self, username: str, password: str) -> Identity:
