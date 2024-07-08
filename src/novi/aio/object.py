@@ -2,8 +2,9 @@ import aiohttp
 
 from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 
+from ..client import ResolveUrlOptions
 from ..misc import mock_as_coro, mock_with_return
-from ..object import Object as SyncObject, ObjectUrlOptions
+from ..object import Object as SyncObject
 
 from typing_extensions import Unpack
 
@@ -52,7 +53,7 @@ class Object(SyncObject):
         variant: str = 'original',
         *,
         encoding: str = 'utf-8',
-        **kwargs: Unpack[ObjectUrlOptions],
+        **kwargs: Unpack[ResolveUrlOptions],
     ) -> str:
         """Reads the object's content as text."""
 
@@ -64,7 +65,7 @@ class Object(SyncObject):
         return result
 
     async def read_bytes(
-        self, variant: str = 'original', **kwargs: Unpack[ObjectUrlOptions]
+        self, variant: str = 'original', **kwargs: Unpack[ResolveUrlOptions]
     ) -> bytes:
         """Reads the object's content as bytes."""
 
