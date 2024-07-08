@@ -109,6 +109,11 @@ def add_task(task: asyncio.Task):
     _state.tasks.append(task)
 
 
+def get_ipfs_gateway() -> str:
+    _state.ensure_init()
+    return _state.ipfs_gateway
+
+
 def get_plugin_dir() -> Path:
     _state.ensure_init()
     return _state.plugin_dir
