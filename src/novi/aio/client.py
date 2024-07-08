@@ -1,12 +1,17 @@
+import aiohttp
 import grpc
 
-from ..client import Client as SyncClient
+from contextlib import asynccontextmanager
+
+from ..client import Client as SyncClient, ResolveUrlOptions
 from ..errors import handle_error
 from ..identity import Identity
 from ..misc import mock_as_coro
 from ..model import SessionMode
 from ..proto import novi_pb2, novi_pb2_grpc
 from .session import Session
+
+from typing_extensions import Unpack
 
 
 class Client(SyncClient):
@@ -70,3 +75,10 @@ class Client(SyncClient):
     @mock_as_coro(SyncClient.check_permission)
     def check_permission(self, *args, **kwargs):
         return super().check_permission(*args, **kwargs)
+
+    @asynccontextmanager
+    async def open_url(self, url: str, **kwargs: Unpack[ResolveUrlOptions]):
+        url = self.resolve_url(url, **kwargs)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                yield resp.content
