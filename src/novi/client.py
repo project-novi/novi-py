@@ -107,6 +107,9 @@ class Client:
     def remove_url_resolver(self, scheme: str):
         self._url_resolvers.pop(scheme)
 
+    def set_ipfs_gateway(self, gateway: str):
+        self.add_url_resolver('ipfs', lambda url: gateway + '/ipfs/' + url[7:])
+
     # On edit, please also edit `ResolveUrlOptions`
     def resolve_url(
         self, url: str, *, dont_resolve: set[str] | bool | None = None

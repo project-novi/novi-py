@@ -46,6 +46,7 @@ class _State:
     identity: Identity
     session: Session
 
+    ipfs_gateway: str
     plugin_dir: Path
     config_template: Path | None
 
