@@ -13,21 +13,17 @@ from typing import (
     BinaryIO,
     ClassVar,
     ParamSpec,
-    TypedDict,
     TypeVar,
     TYPE_CHECKING,
 )
 from typing_extensions import Unpack
 
 if TYPE_CHECKING:
+    from .client import ResolveUrlOptions
     from .session import Session, StoreFileOptions
 
 P = ParamSpec('P')
 R = TypeVar('R')
-
-
-class ObjectUrlOptions(TypedDict, total=False):
-    resolve_ipfs: bool
 
 
 class ObjectFormat:
@@ -182,6 +178,10 @@ class BaseObject:
 class Object(BaseObject):
     session: 'Session'
 
+    @property
+    def client(self):
+        return self.session.client
+
     @classmethod
     def from_pb(cls, pb: novi_pb2.Object, session: 'Session'):
         obj = super().from_pb(pb)
@@ -210,10 +210,7 @@ class Object(BaseObject):
         return self.session.delete_object(self.id)
 
     def url(
-        self,
-        variant: str = 'original',
-        *,
-        resolve_ipfs: bool = True,
+        self, variant: str = 'original', **kwargs: Unpack['ResolveUrlOptions']
     ) -> str:
         """Returns the URL of the object files."""
         try:
@@ -221,27 +218,20 @@ class Object(BaseObject):
         except KeyError:
             raise FileNotFoundError(f'variant {variant!r} not found')
 
-        if url.startswith('ipfs://') and resolve_ipfs:
-            from .file import get_ipfs_gateway
-
-            url = get_ipfs_gateway() + '/ipfs/' + url[7:]
-
-        return url
+        return self.client.resolve_url(url, **kwargs)
 
     def open(
-        self, variant: str = 'original', **kwargs: Unpack[ObjectUrlOptions]
+        self, variant: str = 'original', **kwargs: Unpack['ResolveUrlOptions']
     ) -> BinaryIO:
         """Opens the object as a file-like object."""
-        from urllib.request import urlopen
-
-        return urlopen(self.url(variant, **kwargs))
+        return self.client.open_url(self.url(variant, **kwargs))
 
     def read_text(
         self,
         variant: str = 'original',
         *,
         encoding: str = 'utf-8',
-        **kwargs: Unpack[ObjectUrlOptions],
+        **kwargs: Unpack['ResolveUrlOptions'],
     ) -> str:
         """Reads the object's content as text."""
 
@@ -249,7 +239,7 @@ class Object(BaseObject):
             return f.read().decode(encoding=encoding)
 
     def read_bytes(
-        self, variant: str = 'original', **kwargs: Unpack['ObjectUrlOptions']
+        self, variant: str = 'original', **kwargs: Unpack['ResolveUrlOptions']
     ) -> bytes:
         """Reads the object's content as bytes."""
 

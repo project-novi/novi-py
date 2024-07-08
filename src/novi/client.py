@@ -1,5 +1,8 @@
 import grpc
 
+from urllib.parse import urlparse
+from urllib.request import urlopen
+
 from .errors import PermissionDeniedError, handle_error
 from .identity import Identity
 from .misc import auto_map
@@ -7,12 +10,23 @@ from .model import SessionMode
 from .proto import novi_pb2, novi_pb2_grpc
 from .session import Session
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import TypedDict
+from typing_extensions import Unpack
+
+Resolver = Callable[[str], str]
+
+
+class ResolveUrlOptions(TypedDict, total=False):
+    dont_resolve: set[str] | bool | None
 
 
 class Client:
+    _url_resolvers: dict[str, Resolver]
+
     def __init__(self, channel: grpc.Channel):
         self._stub = novi_pb2_grpc.NoviStub(channel)
+        self._url_resolvers = {}
 
     @handle_error
     def login(self, username: str, password: str) -> Identity:
@@ -86,3 +100,29 @@ class Client:
             self.has_permission(identity, permission),
             action,
         )
+
+    def add_url_resolver(self, scheme: str, resolver: Resolver):
+        self._url_resolvers[scheme] = resolver
+
+    def remove_url_resolver(self, scheme: str):
+        self._url_resolvers.pop(scheme)
+
+    # On edit, please also edit `ResolveUrlOptions`
+    def resolve_url(
+        self, url: str, *, dont_resolve: set[str] | bool | None = None
+    ) -> str:
+        if dont_resolve is True:
+            return url
+        elif dont_resolve is None or dont_resolve is False:
+            dont_resolve = {}
+
+        assert isinstance(dont_resolve, set)
+        scheme = urlparse(url)[0]
+        try:
+            return self._url_resolvers[scheme](url)
+        except KeyError:
+            return url
+
+    def open_url(self, url: str, **kwargs: Unpack[ResolveUrlOptions]):
+        url = self.resolve_url(url, **kwargs)
+        return urlopen(url)
