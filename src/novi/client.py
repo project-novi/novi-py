@@ -117,7 +117,7 @@ class Client:
         if dont_resolve is True:
             return url
         elif dont_resolve is None or dont_resolve is False:
-            dont_resolve = {}
+            dont_resolve = set()
 
         assert isinstance(dont_resolve, set)
         scheme = urlparse(url)[0]
