@@ -10,6 +10,7 @@ from .proto import novi_pb2
 
 from collections.abc import Iterator
 from typing import (
+    Any,
     BinaryIO,
     ClassVar,
     ParamSpec,
@@ -98,7 +99,7 @@ class BaseObject:
             updated=dt_from_timestamp(pb.updated),
         )
 
-    def dump_python(self, fmt: ObjectFormat = ObjectFormat.BRIEF) -> str:
+    def dump_python(self, fmt: ObjectFormat = ObjectFormat.BRIEF) -> dict[str, Any]:
         result = {}
         for field in fmt.fields:
             result[field] = getattr(self, field)
